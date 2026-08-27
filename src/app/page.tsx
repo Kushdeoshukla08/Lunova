@@ -182,8 +182,8 @@ export default function LandingPage() {
             <Link href="/privacy" className="hover:text-ink">
               Privacy
             </Link>
-            <Link href="/styleguide" className="hover:text-ink">
-              Style guide
+            <Link href="/terms" className="hover:text-ink">
+              Terms
             </Link>
           </nav>
         </div>

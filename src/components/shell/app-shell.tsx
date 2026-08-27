@@ -36,6 +36,12 @@ export function AppShell({
 
   return (
     <div className="flex min-h-full flex-col lg:flex-row">
+      <a
+        href="#content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-ink focus:px-3 focus:py-2 focus:text-sm focus:text-paper"
+      >
+        Skip to content
+      </a>
       {/* Desktop rail */}
       <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-line bg-paper-raised px-3 py-5 lg:flex">
         <Link
@@ -119,7 +125,7 @@ export function AppShell({
       </header>
 
       {/* Content */}
-      <main className="flex-1 pb-20 lg:pb-0">
+      <main id="content" className="flex-1 pb-20 lg:pb-0">
         <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6 lg:max-w-4xl lg:py-10">
           {children}
         </div>
