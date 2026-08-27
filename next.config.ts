@@ -22,6 +22,8 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
+  // Pin the workspace root so Turbopack doesn't walk up to a stray lockfile in $HOME.
+  turbopack: { root: import.meta.dirname },
   experimental: {
     // Server Actions are same-origin only; list extra trusted origins here if needed.
     serverActions: { bodySizeLimit: "4mb" },

@@ -10,7 +10,7 @@
 import "dotenv/config";
 import pg from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../src/generated/prisma/client.ts";
+import { PrismaClient } from "../src/generated/prisma/client";
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
@@ -189,7 +189,7 @@ async function seedDemoAccounts() {
     console.log("• SEED_DEMO ignored in production");
     return;
   }
-  const { hashPassword } = await import("../src/lib/auth/password.ts");
+  const { hashPassword } = await import("../src/lib/auth/password");
   const passwordHash = await hashPassword("lunova-demo-pass");
 
   const demos = [
