@@ -15,7 +15,10 @@
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "pg:start": "node scripts/pg.mjs start",
+    "pg:stop": "node scripts/pg.mjs stop",
+    "pg:status": "node scripts/pg.mjs status"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",
