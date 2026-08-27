@@ -20,13 +20,17 @@ const NAV: NavItem[] = [
 export function AppShell({
   user,
   children,
+  unreadConnections = 0,
 }: {
   user: CurrentUser;
   children: React.ReactNode;
+  unreadConnections?: number;
 }) {
   const pathname = usePathname();
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
+  const badgeFor = (href: string) =>
+    href === "/connections" && unreadConnections > 0 ? unreadConnections : null;
 
   return (
     <div className="flex min-h-full flex-col lg:flex-row">
@@ -54,6 +58,11 @@ export function AppShell({
             >
               <span className="[&_svg]:size-5">{item.icon}</span>
               {item.label}
+              {badgeFor(item.href) && (
+                <span className="ml-auto grid min-w-5 place-items-center rounded-full bg-glow px-1.5 text-xs font-medium text-white">
+                  {badgeFor(item.href)}
+                </span>
+              )}
             </Link>
           ))}
         </nav>
@@ -92,12 +101,17 @@ export function AppShell({
             href={item.href}
             aria-current={isActive(item.href) ? "page" : undefined}
             className={cn(
-              "flex flex-col items-center gap-1 py-2.5 text-[0.7rem] font-medium",
+              "relative flex flex-col items-center gap-1 py-2.5 text-[0.7rem] font-medium",
               isActive(item.href) ? "text-glow" : "text-ink-faint",
             )}
           >
             <span className="[&_svg]:size-6">{item.icon}</span>
             {item.label}
+            {badgeFor(item.href) && (
+              <span className="absolute right-[calc(50%-1.75rem)] top-1.5 grid min-w-4 place-items-center rounded-full bg-glow px-1 text-[0.6rem] font-semibold text-white">
+                {badgeFor(item.href)}
+              </span>
+            )}
           </Link>
         ))}
       </nav>

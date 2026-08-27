@@ -55,6 +55,20 @@ export const VISIBILITY_LABELS: Record<string, string> = {
   PRIVATE: "Only me",
 };
 
+export const REPORT_CATEGORY_LABELS: Record<string, string> = {
+  HARASSMENT: "Harassment or bullying",
+  UNWANTED_SEXUAL_CONTENT: "Unwanted sexual content",
+  INAPPROPRIATE_CONTENT: "Inappropriate photos or content",
+  HATE_SPEECH: "Hate speech",
+  THREATS: "Threats or violence",
+  FAKE_PROFILE: "Fake profile",
+  IMPERSONATION: "Impersonating someone",
+  SCAM: "Scam or fraud",
+  SPAM: "Spam or solicitation",
+  UNDERAGE: "They may be under 18",
+  OTHER: "Something else",
+};
+
 export function toOptions(map: Record<string, string>) {
   return Object.entries(map).map(([value, label]) => ({ value, label }));
 }
