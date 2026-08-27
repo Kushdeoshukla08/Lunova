@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { notify } from "@/lib/notifications/service";
 import { loadCompatInput } from "@/lib/compatibility/load";
 import { computeCompatibility } from "@/lib/compatibility/engine";
+import { realtime } from "@/lib/realtime/provider";
 import type { Highlight } from "@/lib/compatibility/types";
 import type { LikeKind } from "@/generated/prisma/enums";
 
@@ -111,6 +112,18 @@ export async function recordLikeAndMaybeMatch(input: {
     notify(actorId, "NEW_MATCH", { matchId: match.id, withUserId: targetId }),
     notify(targetId, "NEW_MATCH", { matchId: match.id, withUserId: actorId }),
   ]);
+
+  // The other person may be looking at the app right now — nudge their client.
+  if (match.conversation?.id) {
+    await realtime
+      .publish(targetId, {
+        type: "match",
+        matchId: match.id,
+        conversationId: match.conversation.id,
+        withUserId: actorId,
+      })
+      .catch(() => {});
+  }
 
   return {
     matched: true,

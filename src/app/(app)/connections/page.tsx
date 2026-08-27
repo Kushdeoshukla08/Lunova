@@ -6,6 +6,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/states";
 import { buttonVariants } from "@/components/ui/button";
+import { LiveRefresh } from "@/components/realtime/live-refresh";
 import { formatRelative } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Connections" };
@@ -16,6 +17,7 @@ export default async function ConnectionsPage() {
 
   return (
     <div className="flex flex-col gap-5">
+      <LiveRefresh on={["message", "match", "read"]} />
       <div>
         <h1 className="text-2xl font-display tracking-tight">Connections</h1>
         <p className="mt-1 text-sm text-ink-soft">

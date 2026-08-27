@@ -6,6 +6,7 @@ import { requireOnboardedUser } from "@/lib/auth/dal";
 import { rateLimiter, RATE_RULES } from "@/lib/rate-limit";
 import { moderateText } from "@/lib/moderation/provider";
 import { notify } from "@/lib/notifications/service";
+import { realtime } from "@/lib/realtime/provider";
 import { messageSchema } from "@/lib/validation/safety";
 
 export type SendResult =
@@ -51,7 +52,7 @@ export async function sendMessageAction(
 
   const message = await db.message.create({
     data: { conversationId, senderId: user.id, body },
-    select: { id: true },
+    select: { id: true, createdAt: true },
   });
   await db.conversation.update({
     where: { id: conversationId },
@@ -59,6 +60,19 @@ export async function sendMessageAction(
   });
 
   await notify(otherId, "NEW_MESSAGE", { conversationId, fromUserId: user.id });
+
+  // Push to both sides: the recipient gets the message, the sender's other
+  // tabs stay in sync. Best-effort — delivery is never load-bearing.
+  await realtime
+    .publish(otherId, {
+      type: "message",
+      conversationId,
+      messageId: message.id,
+      senderId: user.id,
+      body,
+      createdAt: message.createdAt.toISOString(),
+    })
+    .catch(() => {});
 
   revalidatePath(`/connections/${conversationId}`);
   revalidatePath("/connections");

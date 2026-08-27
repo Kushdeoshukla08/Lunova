@@ -2,6 +2,7 @@ import { requireOnboardedUser } from "@/lib/auth/dal";
 import { unreadConversationCount } from "@/lib/conversations/service";
 import { unreadNotificationCount } from "@/lib/notifications/service";
 import { AppShell } from "@/components/shell/app-shell";
+import { RealtimeProvider } from "@/components/realtime/realtime-provider";
 
 export default async function AppGroupLayout({ children }: LayoutProps<"/">) {
   const user = await requireOnboardedUser();
@@ -10,12 +11,14 @@ export default async function AppGroupLayout({ children }: LayoutProps<"/">) {
     unreadNotificationCount(user.id),
   ]);
   return (
-    <AppShell
-      user={user}
-      unreadConnections={unreadConnections}
-      unreadNotifications={unreadNotifications}
-    >
-      {children}
-    </AppShell>
+    <RealtimeProvider>
+      <AppShell
+        user={user}
+        unreadConnections={unreadConnections}
+        unreadNotifications={unreadNotifications}
+      >
+        {children}
+      </AppShell>
+    </RealtimeProvider>
   );
 }

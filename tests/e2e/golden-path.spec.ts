@@ -60,12 +60,12 @@ test.describe("golden path", () => {
     await expect(page.getByRole("heading", { name: /Arjun, \d+/ })).toBeVisible({
       timeout: 15_000,
     });
-    await page.getByRole("button", { name: "Like", exact: true }).click();
+    await page.getByRole("button", { name: /^Like / }).click();
 
     await expect(page.getByText("You found something in common")).toBeVisible({
       timeout: 15_000,
     });
-    await page.getByRole("link", { name: "Send a message" }).click();
+    await page.getByRole("link", { name: "Say hi" }).click();
     await page.waitForURL(/\/connections\//);
 
     const box = page.getByRole("textbox", { name: /Message Arjun/ });
@@ -85,8 +85,8 @@ test.describe("golden path", () => {
     await expect(page.getByRole("heading", { name: /Arjun, \d+/ })).toBeVisible({
       timeout: 15_000,
     });
-    await page.getByRole("button", { name: "Like", exact: true }).click();
-    await page.getByRole("link", { name: "Send a message" }).click();
+    await page.getByRole("button", { name: /^Like / }).click();
+    await page.getByRole("link", { name: "Say hi" }).click();
     await page.waitForURL(/\/connections\//);
 
     await page.getByRole("button", { name: "Safety options" }).click();

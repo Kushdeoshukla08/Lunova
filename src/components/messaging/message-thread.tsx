@@ -4,9 +4,11 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { sendMessageAction } from "@/lib/messaging/actions";
+import { markReadAction } from "@/lib/messaging/read-actions";
 import { formatDayHeading, formatTime } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { FormMessage } from "@/components/auth/form-message";
+import { useRealtime } from "@/components/realtime/realtime-provider";
 import type { ThreadMessage } from "@/lib/conversations/service";
 
 type PendingMsg = ThreadMessage & { tempId: string; state: "sending" | "sent" | "failed" };
@@ -49,6 +51,19 @@ export function MessageThread({
   React.useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end" });
   }, [messages.length]);
+
+  // Live updates. Every event is a nudge — we re-fetch server truth rather than
+  // splicing payloads in, so duplicates and out-of-order delivery are moot.
+  useRealtime((event) => {
+    if (event.type === "message" && event.conversationId === conversationId) {
+      router.refresh();
+      // we're looking at the thread, so mark it read straight away
+      void markReadAction(conversationId);
+    }
+    if (event.type === "read" && event.conversationId === conversationId) {
+      router.refresh();
+    }
+  });
 
   const send = () => {
     const body = draft.trim();
@@ -104,7 +119,10 @@ export function MessageThread({
               ) : (
                 <div
                   key={m.tempId ?? m.id}
-                  className={cn("flex", m.fromMe ? "justify-end" : "justify-start")}
+                  className={cn(
+                    "flex motion-safe:animate-[orbit-in-sm_var(--dur)_var(--ease-orbit)]",
+                    m.fromMe ? "justify-end" : "justify-start",
+                  )}
                 >
                   <div
                     className={cn(
@@ -118,7 +136,7 @@ export function MessageThread({
                     <p className="whitespace-pre-wrap break-words">{m.body}</p>
                     <span
                       className={cn(
-                        "mt-0.5 block text-right text-[0.65rem]",
+                        "mt-0.5 flex items-center justify-end gap-1 text-[0.65rem]",
                         m.fromMe ? "text-white/70" : "text-ink-faint",
                       )}
                     >
@@ -127,6 +145,20 @@ export function MessageThread({
                         : m.state === "failed"
                           ? "failed — tap Send to retry"
                           : formatTime(m.createdAt)}
+                      {m.fromMe && !m.state && m.readAt && (
+                        <span title="Read" aria-label="Message read" data-read-receipt>
+                          <svg viewBox="0 0 16 12" className="h-2.5 w-4" aria-hidden="true">
+                            <path
+                              d="M1 6.5 4 9.5 9.5 2M6.5 8.5 8 10l5.5-8"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.6"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </span>
+                      )}
                     </span>
                   </div>
                 </div>
