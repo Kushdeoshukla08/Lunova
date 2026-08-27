@@ -17,23 +17,19 @@ const PROTECTED = [
   "/verify",
   "/account",
 ];
-const AUTH_ONLY = ["/login", "/signup"];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const hasSession = request.cookies.has(SESSION_COOKIE);
 
+  // Only guard app routes on *missing* cookie. Redirecting an authed user away
+  // from /login is left to those pages (via the DAL) so a stale/invalid cookie
+  // can't ping-pong between proxy and page.
   if (!hasSession && PROTECTED.some((p) => pathname.startsWith(p))) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
-    url.search = pathname === "/discover" ? "" : `?next=${encodeURIComponent(pathname)}`;
-    return NextResponse.redirect(url);
-  }
-
-  if (hasSession && AUTH_ONLY.some((p) => pathname === p)) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/discover";
-    url.search = "";
+    url.search =
+      pathname === "/discover" ? "" : `?next=${encodeURIComponent(pathname)}`;
     return NextResponse.redirect(url);
   }
 
@@ -50,7 +46,5 @@ export const config = {
     "/onboarding/:path*",
     "/verify/:path*",
     "/account/:path*",
-    "/login",
-    "/signup",
   ],
 };

@@ -1,5 +1,6 @@
 import "server-only";
 import { cache } from "react";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { readSession } from "./session";
@@ -65,9 +66,13 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
 /** Require a signed-in, non-removed account. Redirects otherwise. */
 export async function requireUser(): Promise<CurrentUser> {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  if (!user) {
+    // A cookie that no longer resolves to a live session → clear it, don't loop.
+    const stale = (await cookies()).has("lunova_session");
+    redirect(stale ? "/session-expired" : "/login");
+  }
   if (user.status === "BANNED" || user.status === "SUSPENDED") redirect("/account/hold");
-  if (user.status === "DELETED") redirect("/login");
+  if (user.status === "DELETED") redirect("/session-expired");
   return user;
 }
 

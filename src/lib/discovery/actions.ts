@@ -74,7 +74,9 @@ export async function likeAction(
     elementRef: elementRef ?? null,
   });
 
-  revalidatePath("/discover");
+  // Note: the client deck advances through its own in-memory batch, so we do NOT
+  // revalidate /discover here (that would shrink the list mid-swipe and skip a
+  // card). The feed refreshes on the next navigation or the "Refresh" button.
   if (outcome.matched) revalidatePath("/connections");
   return { ok: true, outcome };
 }
@@ -93,6 +95,5 @@ export async function passAction(
     targetId: targetUserId,
     kind: "PASS",
   });
-  revalidatePath("/discover");
   return { ok: true, outcome };
 }

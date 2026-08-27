@@ -11,37 +11,41 @@ import { EmptyState } from "@/components/ui/states";
 import { Button } from "@/components/ui/button";
 import { FormMessage } from "@/components/auth/form-message";
 
-type Match = { name: string; conversationId?: string; highlights: DiscoveryProfile["compatibility"]["highlights"] };
+type Match = {
+  name: string;
+  conversationId?: string;
+  highlights: DiscoveryProfile["compatibility"]["highlights"];
+};
 
 export function DiscoveryDeck({ profiles }: { profiles: DiscoveryProfile[] }) {
   const router = useRouter();
-  const [index, setIndex] = React.useState(0);
+  // Snapshot the batch on mount. RSC refreshes from Server Actions must not
+  // disturb an in-progress session — the deck owns its queue until it's empty.
+  const [queue, setQueue] = React.useState(() => profiles);
+  const [total] = React.useState(() => profiles.length);
   const [pending, startTransition] = React.useTransition();
   const [error, setError] = React.useState<string | undefined>();
   const [reacting, setReacting] = React.useState(false);
   const [match, setMatch] = React.useState<Match | null>(null);
 
-  const current = profiles[index];
+  const current = queue[0];
+  const position = total - queue.length + 1;
 
-  const advance = () => {
-    setError(undefined);
-    setIndex((i) => i + 1);
-  };
-
-  const handleLike = (comment?: string, elementRef?: string) => {
-    if (!current) return;
-    const target = current;
+  const act = (
+    run: () => Promise<
+      { ok: true; outcome: { matched: boolean; conversationId?: string; otherName?: string } } | { ok: false; error: string }
+    >,
+    target: DiscoveryProfile,
+  ) => {
+    if (pending) return;
     setReacting(false);
     startTransition(async () => {
-      const res = await likeAction({
-        targetUserId: target.userId,
-        comment,
-        elementRef,
-      });
+      const res = await run();
       if (!res.ok) {
         setError(res.error);
         return;
       }
+      setError(undefined);
       if (res.outcome.matched) {
         setMatch({
           name: res.outcome.otherName ?? target.displayName,
@@ -49,36 +53,47 @@ export function DiscoveryDeck({ profiles }: { profiles: DiscoveryProfile[] }) {
           highlights: target.compatibility.highlights,
         });
       }
-      advance();
+      setQueue((q) => q.slice(1));
     });
   };
 
-  const handlePass = () => {
+  const like = (comment?: string, elementRef?: string) => {
     if (!current) return;
-    const target = current;
-    startTransition(async () => {
-      const res = await passAction(target.userId);
-      if (!res.ok) setError(res.error);
-      advance();
-    });
+    act(
+      () => likeAction({ targetUserId: current.userId, comment, elementRef }),
+      current,
+    );
+  };
+  const pass = () => {
+    if (!current) return;
+    act(() => passAction(current.userId), current);
   };
 
   if (!current) {
     return (
-      <EmptyState
-        title="That's everyone for now"
-        description="You've seen all the people who match your filters today. New members join constantly — check back soon, or widen your preferences."
-        action={
-          <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => router.refresh()}>
-              Refresh
-            </Button>
-            <Button variant="ghost" onClick={() => router.push("/settings")}>
-              Adjust filters
-            </Button>
-          </div>
-        }
-      />
+      <>
+        <EmptyState
+          title="That's everyone for now"
+          description="You've seen all the people who match your filters today. New members join constantly — check back soon, or widen your preferences."
+          action={
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={() => router.refresh()}>
+                Refresh
+              </Button>
+              <Button variant="ghost" onClick={() => router.push("/settings")}>
+                Adjust filters
+              </Button>
+            </div>
+          }
+        />
+        <MatchMoment
+          open={!!match}
+          onClose={() => setMatch(null)}
+          name={match?.name ?? ""}
+          conversationId={match?.conversationId}
+          highlights={match?.highlights ?? []}
+        />
+      </>
     );
   }
 
@@ -86,7 +101,7 @@ export function DiscoveryDeck({ profiles }: { profiles: DiscoveryProfile[] }) {
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between text-xs text-ink-faint">
         <span>
-          {index + 1} of {profiles.length}
+          {position} of {total}
         </span>
       </div>
 
@@ -96,8 +111,8 @@ export function DiscoveryDeck({ profiles }: { profiles: DiscoveryProfile[] }) {
         key={current.userId}
         profile={current}
         pending={pending}
-        onLike={() => handleLike()}
-        onPass={handlePass}
+        onLike={() => like()}
+        onPass={pass}
         onReact={() => setReacting(true)}
       />
 
@@ -107,7 +122,7 @@ export function DiscoveryDeck({ profiles }: { profiles: DiscoveryProfile[] }) {
         onClose={() => setReacting(false)}
         profile={current}
         pending={pending}
-        onSend={(elementRef, comment) => handleLike(comment, elementRef)}
+        onSend={(elementRef, comment) => like(comment, elementRef)}
       />
 
       <MatchMoment
