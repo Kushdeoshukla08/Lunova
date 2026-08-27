@@ -32,7 +32,11 @@ import {
 export type StepState = {
   error?: string;
   fieldErrors?: Record<string, string[] | undefined>;
+  /** Set after a successful save in "edit" mode (no redirect). */
+  saved?: boolean;
 };
+
+export type StepMode = "onboarding" | "edit";
 
 const MAX_PHOTOS = 6;
 
@@ -137,12 +141,13 @@ export async function setPrimaryPhotoAction(formData: FormData): Promise<void> {
 
 export async function saveStepAction(
   slug: string,
+  mode: StepMode,
   _prev: StepState,
   formData: FormData,
 ): Promise<StepState> {
   if (!isOnboardingSlug(slug)) redirect("/onboarding");
   const { user, profile } = await currentProfile();
-  assertStepAllowed(profile.onboardingStep, slug);
+  if (mode === "onboarding") assertStepAllowed(profile.onboardingStep, slug);
 
   let result: StepState | void;
   switch (slug) {
@@ -175,6 +180,15 @@ export async function saveStepAction(
       break;
   }
   if (result && (result.error || result.fieldErrors)) return result;
+
+  await recomputeCompleteness(user.id);
+
+  // Editing an existing profile — persist and stay put.
+  if (mode === "edit") {
+    revalidatePath("/profile");
+    revalidatePath("/discover");
+    return { saved: true };
+  }
 
   const next = nextStep(slug);
   if (next) {

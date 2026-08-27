@@ -14,7 +14,7 @@ export type CurrentUser = {
   emailVerifiedAt: Date | null;
   onboardingComplete: boolean;
   displayName: string | null;
-  primaryPhotoKey: string | null;
+  primaryPhotoUrl: string | null;
 };
 
 /**
@@ -59,7 +59,9 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     emailVerifiedAt: user.emailVerifiedAt,
     onboardingComplete: user.status !== "PENDING" && !user.profile?.onboardingStep,
     displayName: user.profile?.displayName ?? null,
-    primaryPhotoKey: user.profile?.photos[0]?.storageKey ?? null,
+    primaryPhotoUrl: user.profile?.photos[0]
+      ? `/media/${user.profile.photos[0].storageKey}`
+      : null,
   };
 });
 

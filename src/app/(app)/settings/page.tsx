@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { requireUser } from "@/lib/auth/dal";
 import { db } from "@/lib/db";
 import { Card, CardTitle } from "@/components/ui/card";
@@ -7,13 +8,19 @@ import { LogoutButton } from "@/components/auth/logout-button";
 
 export const metadata: Metadata = { title: "Settings" };
 
+const LINKS = [
+  ["/settings/notifications", "Notifications", "What we tell you about, and how"],
+  ["/settings/privacy", "Privacy & visibility", "Who sees your profile, music, activity and distance"],
+  ["/settings/security", "Security", "Signed-in devices and sessions"],
+  ["/settings/blocked", "Blocked people", "Manage who you've blocked"],
+  ["/settings/account", "Account", "Export or delete your data"],
+];
+
 export default async function SettingsPage() {
   const user = await requireUser();
-  const sessions = await db.session.findMany({
-    where: { userId: user.id, revokedAt: null, expiresAt: { gt: new Date() } },
-    orderBy: { lastUsedAt: "desc" },
-    select: { id: true, userAgent: true, lastUsedAt: true, ip: true },
-    take: 10,
+  const trust = await db.trustProfile.findUnique({
+    where: { userId: user.id },
+    select: { phoneVerified: true, photoVerified: true, identityVerified: true },
   });
 
   return (
@@ -23,71 +30,64 @@ export default async function SettingsPage() {
       <Card>
         <CardTitle>Account</CardTitle>
         <dl className="mt-3 space-y-2 text-sm">
-          <div className="flex justify-between gap-4">
-            <dt className="text-ink-faint">Email</dt>
-            <dd className="text-ink">{user.email}</dd>
-          </div>
-          <div className="flex justify-between gap-4">
-            <dt className="text-ink-faint">Email status</dt>
-            <dd>
-              <Badge tone={user.emailVerifiedAt ? "ok" : "warn"}>
-                {user.emailVerifiedAt ? "Verified" : "Unverified"}
-              </Badge>
-            </dd>
-          </div>
+          <Row label="Email">
+            <span className="text-ink">{user.email}</span>
+            <Badge tone={user.emailVerifiedAt ? "ok" : "warn"} className="ml-2">
+              {user.emailVerifiedAt ? "Verified" : "Unverified"}
+            </Badge>
+          </Row>
+          <Row label="Phone">
+            {trust?.phoneVerified ? (
+              <Badge tone="ok">Verified</Badge>
+            ) : (
+              <Link href="/verify/phone" className="text-glow hover:text-glow-press">
+                Add & verify
+              </Link>
+            )}
+          </Row>
+          <Row label="Photo verification">
+            {trust?.photoVerified ? (
+              <Badge tone="moonlight">Verified</Badge>
+            ) : (
+              <Link href="/verify/photo" className="text-glow hover:text-glow-press">
+                Get verified
+              </Link>
+            )}
+          </Row>
         </dl>
       </Card>
 
-      <Card>
-        <CardTitle>Active sessions</CardTitle>
-        <p className="mt-1 text-sm text-ink-soft">
-          Devices currently signed in to your account.
-        </p>
-        <ul className="mt-3 divide-y divide-line text-sm">
-          {sessions.map((s) => (
-            <li key={s.id} className="flex items-center justify-between gap-4 py-2.5">
-              <span className="text-ink">{labelUa(s.userAgent)}</span>
-              <span className="text-ink-faint">
-                {new Date(s.lastUsedAt).toLocaleDateString()}
-              </span>
+      <Card padding="none">
+        <ul className="divide-y divide-line">
+          {LINKS.map(([href, title, blurb]) => (
+            <li key={href}>
+              <Link href={href} className="flex items-center justify-between gap-4 px-5 py-4 hover:bg-sand/50">
+                <div>
+                  <p className="text-sm font-medium text-ink">{title}</p>
+                  <p className="text-xs text-ink-soft">{blurb}</p>
+                </div>
+                <span className="text-ink-faint">→</span>
+              </Link>
             </li>
           ))}
         </ul>
-        <p className="mt-3 text-xs text-ink-faint">
-          Full session management (revoke individually, sign out everywhere) lands
-          with the privacy &amp; security phase.
-        </p>
       </Card>
 
       <Card>
         <CardTitle>Session</CardTitle>
         <div className="mt-3">
-          <LogoutButton className="text-glow hover:text-glow-press font-medium" />
+          <LogoutButton className="font-medium text-glow hover:text-glow-press" />
         </div>
       </Card>
     </div>
   );
 }
 
-function labelUa(ua: string | null): string {
-  if (!ua) return "Unknown device";
-  const b = /Firefox/.test(ua)
-    ? "Firefox"
-    : /Edg\//.test(ua)
-      ? "Edge"
-      : /Chrome/.test(ua)
-        ? "Chrome"
-        : /Safari/.test(ua)
-          ? "Safari"
-          : "Browser";
-  const o = /Windows/.test(ua)
-    ? "Windows"
-    : /Mac/.test(ua)
-      ? "macOS"
-      : /Android/.test(ua)
-        ? "Android"
-        : /iPhone|iPad/.test(ua)
-          ? "iOS"
-          : "device";
-  return `${b} · ${o}`;
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <dt className="text-ink-faint">{label}</dt>
+      <dd className="flex items-center">{children}</dd>
+    </div>
+  );
 }
