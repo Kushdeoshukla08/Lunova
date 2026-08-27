@@ -13,9 +13,12 @@ const PROTECTED = [
   "/activity",
   "/profile",
   "/settings",
+  "/notifications",
   "/onboarding",
   "/verify",
   "/account",
+  "/admin",
+  "/u/",
 ];
 
 export function proxy(request: NextRequest) {
@@ -43,8 +46,11 @@ export const config = {
     "/activity/:path*",
     "/profile/:path*",
     "/settings/:path*",
+    "/notifications/:path*",
     "/onboarding/:path*",
     "/verify/:path*",
     "/account/:path*",
+    "/admin/:path*",
+    "/u/:path*",
   ],
 };

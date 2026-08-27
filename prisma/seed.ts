@@ -456,11 +456,43 @@ async function seedDemoAccounts() {
     });
   }
 
+  // A staff account for exercising the Trust & Safety console (dev only).
+  if (
+    !(await prisma.user.findUnique({
+      where: { email: "admin@demo.lunova.local" },
+      select: { id: true },
+    }))
+  ) {
+    await prisma.user.create({
+      data: {
+        email: "admin@demo.lunova.local",
+        passwordHash,
+        birthdate: new Date(1990, 0, 1),
+        emailVerifiedAt: new Date(),
+        ageVerifiedAt: new Date(),
+        status: "ACTIVE",
+        role: "ADMIN",
+        preference: { create: {} },
+        privacy: { create: { profileVisibility: "PAUSED", discoveryPaused: true } },
+        trust: { create: { emailVerified: true } },
+        notificationPref: { create: {} },
+        profile: {
+          create: {
+            displayName: "Lunova Admin",
+            gender: "PREFER_NOT_TO_SAY",
+            onboardingStep: null,
+            completeness: 0,
+          },
+        },
+      },
+    });
+  }
+
   const count = await prisma.user.count({
     where: { email: { endsWith: "@demo.lunova.local" } },
   });
   console.log(
-    `✓ demo accounts: ${count} fully-onboarded profiles (password: "lunova-demo-pass")`,
+    `✓ demo accounts: ${count} (incl. admin@demo.lunova.local, role ADMIN) — password: "lunova-demo-pass"`,
   );
 }
 

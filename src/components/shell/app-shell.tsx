@@ -21,10 +21,12 @@ export function AppShell({
   user,
   children,
   unreadConnections = 0,
+  unreadNotifications = 0,
 }: {
   user: CurrentUser;
   children: React.ReactNode;
   unreadConnections?: number;
+  unreadNotifications?: number;
 }) {
   const pathname = usePathname();
   const isActive = (href: string) =>
@@ -67,8 +69,26 @@ export function AppShell({
           ))}
         </nav>
         <Link
+          href="/notifications"
+          aria-current={isActive("/notifications") ? "page" : undefined}
+          className={cn(
+            "flex items-center gap-3 rounded-[var(--radius-md)] px-3 py-2.5 text-sm font-medium transition-colors",
+            isActive("/notifications")
+              ? "bg-sand text-ink"
+              : "text-ink-soft hover:bg-sand/60 hover:text-ink",
+          )}
+        >
+          <span className="[&_svg]:size-5"><IconBell /></span>
+          Notifications
+          {unreadNotifications > 0 && (
+            <span className="ml-auto grid min-w-5 place-items-center rounded-full bg-glow px-1.5 text-xs font-medium text-white">
+              {unreadNotifications}
+            </span>
+          )}
+        </Link>
+        <Link
           href="/settings"
-          className="flex items-center gap-3 rounded-[var(--radius-md)] px-3 py-2.5 text-sm text-ink-soft hover:bg-sand/60 hover:text-ink"
+          className="mt-1 flex items-center gap-3 rounded-[var(--radius-md)] px-3 py-2.5 text-sm text-ink-soft hover:bg-sand/60 hover:text-ink"
         >
           <Avatar name={user.displayName ?? user.email} size="xs" />
           <span className="truncate">{user.displayName ?? "Settings"}</span>
@@ -81,9 +101,21 @@ export function AppShell({
           <LunovaMark className="size-6" />
           <span className="font-display text-lg tracking-tight text-ink">Lunova</span>
         </Link>
-        <Link href="/settings" aria-label="Settings">
-          <Avatar name={user.displayName ?? user.email} size="sm" />
-        </Link>
+        <div className="flex items-center gap-1">
+          <Link
+            href="/notifications"
+            aria-label={`Notifications${unreadNotifications ? `, ${unreadNotifications} unread` : ""}`}
+            className="relative grid size-9 place-items-center rounded-full text-ink-soft hover:bg-sand"
+          >
+            <span className="[&_svg]:size-5"><IconBell /></span>
+            {unreadNotifications > 0 && (
+              <span className="absolute right-1 top-1 size-2 rounded-full bg-glow" />
+            )}
+          </Link>
+          <Link href="/settings" aria-label="Settings">
+            <Avatar name={user.displayName ?? user.email} size="sm" />
+          </Link>
+        </div>
       </header>
 
       {/* Content */}
@@ -168,6 +200,19 @@ function IconPerson() {
         strokeWidth="1.7"
         strokeLinecap="round"
       />
+    </svg>
+  );
+}
+function IconBell() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
+      />
+      <path d="M10 19a2 2 0 0 0 4 0" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
     </svg>
   );
 }
