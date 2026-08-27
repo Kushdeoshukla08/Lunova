@@ -1,0 +1,772 @@
+// Lunova — lifestyle-first connection platform
+// Prisma 7 schema. Connection URLs live in prisma.config.ts (not here).
+// Design notes:
+//   - Every user-facing sensitive field has an explicit visibility control (see PrivacySetting).
+//   - Safety/trust signals are PRIVATE (TrustProfile, SafetyEvent, Report) — never a public score.
+//   - Soft-delete via `deletedAt` on User; hard anonymization handled by the account-deletion job.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+  runtime  = "nodejs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum Role {
+  USER
+  MODERATOR
+  ADMIN
+}
+
+enum AccountStatus {
+  PENDING // signed up, onboarding not finished
+  ACTIVE
+  PAUSED // user paused discovery / took a break
+  SUSPENDED // moderation hold, time-boxed
+  BANNED
+  DELETED // anonymized
+}
+
+enum Gender {
+  WOMAN
+  MAN
+  NONBINARY
+  TRANS_WOMAN
+  TRANS_MAN
+  GENDERQUEER
+  AGENDER
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+enum RelationshipIntent {
+  LONG_TERM
+  LONG_TERM_OPEN_SHORT
+  SHORT_TERM_OPEN_LONG
+  SHORT_TERM
+  FRIENDS
+  FIGURING_IT_OUT
+}
+
+enum Orientation {
+  STRAIGHT
+  GAY
+  LESBIAN
+  BISEXUAL
+  PANSEXUAL
+  ASEXUAL
+  QUEER
+  QUESTIONING
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+enum LocationPrecision {
+  EXACT_HIDDEN // stored for distance math, never exposed
+  NEIGHBORHOOD
+  CITY
+  REGION
+}
+
+enum Visibility {
+  PUBLIC // any discoverable member
+  CONNECTIONS // matches only
+  PRIVATE // only me
+}
+
+enum ProfileVisibility {
+  DISCOVERABLE
+  LIMITED // only people I've liked can see me
+  PAUSED // not shown in discovery at all
+}
+
+enum PhotoModerationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum LikeKind {
+  LIKE
+  PASS
+}
+
+enum MatchCloseReason {
+  UNMATCHED
+  BLOCKED
+  REPORTED
+  ACCOUNT_REMOVED
+}
+
+enum MessageSystemType {
+  MATCH_CREATED
+  SHARED_PROMPT
+  SAFETY_NOTICE
+}
+
+enum VerificationKind {
+  EMAIL
+  PHONE
+  PASSWORD_RESET
+}
+
+enum IdentityCheckKind {
+  PHOTO_SELFIE
+  GOVERNMENT_ID
+}
+
+enum IdentityCheckStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+enum ReportCategory {
+  HARASSMENT
+  INAPPROPRIATE_CONTENT
+  FAKE_PROFILE
+  SCAM
+  IMPERSONATION
+  HATE_SPEECH
+  UNWANTED_SEXUAL_CONTENT
+  THREATS
+  SPAM
+  UNDERAGE
+  OTHER
+}
+
+enum ReportStatus {
+  OPEN
+  REVIEWING
+  ACTIONED
+  DISMISSED
+}
+
+enum SafetyEventType {
+  SIGNUP
+  EMAIL_VERIFIED
+  PHONE_VERIFIED
+  PHOTO_VERIFIED
+  IDENTITY_VERIFIED
+  SUSPICIOUS_LOGIN
+  RATE_LIMIT_TRIPPED
+  MESSAGE_SPAM_SUSPECTED
+  DUPLICATE_ACCOUNT_SUSPECTED
+  REPORT_RECEIVED
+  MODERATION_ACTION
+  BLOCK_RECEIVED
+  APPEAL_SUBMITTED
+}
+
+enum SafetySeverity {
+  INFO
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ModerationActionType {
+  WARN
+  RESTRICT_DISCOVERY
+  RESTRICT_MESSAGING
+  SUSPEND
+  BAN
+  CLEAR
+  REINSTATE
+}
+
+enum TrustTier {
+  NEW
+  ESTABLISHED
+  TRUSTED
+  FLAGGED
+}
+
+enum NotificationType {
+  NEW_LIKE
+  NEW_MATCH
+  NEW_MESSAGE
+  VERIFICATION_COMPLETE
+  VERIFICATION_REJECTED
+  SECURITY_ALERT
+  SAFETY_UPDATE
+  PRODUCT
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Account & security
+// ─────────────────────────────────────────────────────────────────────────────
+
+model User {
+  id             String        @id @default(cuid())
+  email          String        @unique
+  emailVerifiedAt DateTime?
+  phone          String?       @unique
+  phoneVerifiedAt DateTime?
+  passwordHash   String
+  role           Role          @default(USER)
+  status         AccountStatus @default(PENDING)
+
+  birthdate      DateTime // age gate lives on the account, not just the profile
+  ageVerifiedAt  DateTime?
+
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  lastActiveAt   DateTime      @default(now())
+  deletedAt      DateTime?
+
+  profile        Profile?
+  preference     Preference?
+  privacy        PrivacySetting?
+  trust          TrustProfile?
+  notificationPref NotificationPreference?
+
+  sessions       Session[]
+  devices        Device[]
+  verifications  VerificationToken[]
+  loginAttempts  LoginAttempt[]
+  identityChecks IdentityCheck[]
+
+  likesSent      Like[]        @relation("LikesByActor")
+  likesReceived  Like[]        @relation("LikesOnTarget")
+  matchesAsA     Match[]       @relation("MatchUserA")
+  matchesAsB     Match[]       @relation("MatchUserB")
+  messagesSent   Message[]
+
+  reportsMade    Report[]      @relation("ReportsByReporter")
+  reportsAbout   Report[]      @relation("ReportsAboutSubject")
+  reportsHandled Report[]      @relation("ReportsHandledBy")
+  blocksMade     Block[]       @relation("BlocksByBlocker")
+  blocksAgainst  Block[]       @relation("BlocksAgainstBlocked")
+  safetyEvents   SafetyEvent[]
+  moderationAgainst ModerationAction[] @relation("ModerationTarget")
+  moderationByMe    ModerationAction[] @relation("ModerationActor")
+  auditLogs      AuditLog[]
+  notifications  Notification[]
+
+  @@index([status])
+  @@index([lastActiveAt])
+  @@index([deletedAt])
+}
+
+model Session {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String   @unique // sha-256 of the opaque session token; raw token only in the cookie
+  createdAt  DateTime @default(now())
+  expiresAt  DateTime
+  lastUsedAt DateTime @default(now())
+  revokedAt  DateTime?
+  ip         String?
+  userAgent  String?
+  deviceId   String?
+  device     Device?  @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Device {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label      String? // "Chrome on Windows"
+  uaHash     String // stable-ish fingerprint of UA + platform
+  firstSeenAt DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+  trusted    Boolean  @default(false)
+  sessions   Session[]
+
+  @@unique([userId, uaHash])
+  @@index([userId])
+}
+
+model VerificationToken {
+  id         String           @id @default(cuid())
+  userId     String
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind       VerificationKind
+  target     String // email address or E.164 phone the code was sent to
+  codeHash   String // hash of the 6-digit / URL code
+  expiresAt  DateTime
+  consumedAt DateTime?
+  attempts   Int              @default(0)
+  createdAt  DateTime         @default(now())
+
+  @@index([userId, kind])
+  @@index([expiresAt])
+}
+
+model LoginAttempt {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  email     String
+  ip        String?
+  userAgent String?
+  success   Boolean
+  reason    String? // "bad_password" | "locked" | "ok"
+  createdAt DateTime @default(now())
+
+  @@index([email, createdAt])
+  @@index([ip, createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Identity / profile
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Profile {
+  id                String             @id @default(cuid())
+  userId            String             @unique
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  displayName       String
+  gender            Gender
+  pronouns          String?
+  orientation       Orientation?
+  bio               String?            @db.VarChar(600)
+  relationshipIntent RelationshipIntent?
+  heightCm          Int?
+
+  // Location — exact lat/lng are for distance math only and never serialized to clients.
+  city              String?
+  region            String?
+  country           String? // ISO 3166-1 alpha-2
+  latitude          Float?
+  longitude         Float?
+  locationPrecision LocationPrecision  @default(CITY)
+  timezone          String? // IANA tz
+
+  completeness      Int                @default(0) // 0-100, recomputed on save
+  onboardingStep    String? // null once complete
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  photos            Photo[]
+  prompts           ProfilePrompt[]
+  interests         ProfileInterest[]
+  music             MusicProfile?
+  activity          ActivityProfile?
+
+  @@index([country, region])
+  @@index([latitude, longitude])
+  @@index([updatedAt])
+}
+
+model Photo {
+  id               String                @id @default(cuid())
+  profileId        String
+  profile          Profile               @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  storageKey       String // key in the object store; served via signed/CDN URL
+  blurhash         String?
+  width            Int?
+  height           Int?
+  position         Int                   @default(0)
+  isPrimary        Boolean               @default(false)
+  moderationStatus PhotoModerationStatus @default(PENDING)
+  moderationLabels Json? // provider response summary
+  createdAt        DateTime              @default(now())
+
+  @@index([profileId, position])
+}
+
+model PromptQuestion {
+  id       String          @id @default(cuid())
+  slug     String          @unique
+  text     String
+  active   Boolean         @default(true)
+  position Int             @default(0)
+  answers  ProfilePrompt[]
+}
+
+model ProfilePrompt {
+  id         String         @id @default(cuid())
+  profileId  String
+  profile    Profile        @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  questionId String
+  question   PromptQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answer     String         @db.VarChar(300)
+  position   Int            @default(0)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  @@unique([profileId, questionId])
+  @@index([profileId, position])
+}
+
+model Interest {
+  id        String            @id @default(cuid())
+  slug      String            @unique
+  label     String
+  category  String
+  profiles  ProfileInterest[]
+
+  @@index([category])
+}
+
+model ProfileInterest {
+  profileId  String
+  profile    Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  interestId String
+  interest   Interest @relation(fields: [interestId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@id([profileId, interestId])
+  @@index([interestId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Music identity  (internal abstraction; external providers plug in via externalRef)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model MusicArtist {
+  id          String                @id @default(cuid())
+  name        String
+  externalRef String?               @unique // e.g. "spotify:artist:..."
+  imageUrl    String?
+  genres      String[]
+  profiles    MusicProfileArtist[]
+
+  @@unique([name])
+}
+
+model MusicTrack {
+  id          String              @id @default(cuid())
+  title       String
+  artistName  String
+  externalRef String?             @unique
+  profiles    MusicProfileTrack[]
+
+  @@index([artistName])
+}
+
+model MusicProfile {
+  id            String               @id @default(cuid())
+  profileId     String               @unique
+  profile       Profile              @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  listeningMood String? // "late-night drives", "gym energy"
+  topGenres     String[]
+  visibility    Visibility           @default(PUBLIC)
+  provider      String? // "internal" | "spotify" | ...
+  syncedAt      DateTime?
+  updatedAt     DateTime             @updatedAt
+
+  artists       MusicProfileArtist[]
+  tracks        MusicProfileTrack[]
+}
+
+model MusicProfileArtist {
+  musicProfileId String
+  musicProfile   MusicProfile @relation(fields: [musicProfileId], references: [id], onDelete: Cascade)
+  artistId       String
+  artist         MusicArtist  @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  rank           Int          @default(0)
+
+  @@id([musicProfileId, artistId])
+  @@index([artistId])
+}
+
+model MusicProfileTrack {
+  musicProfileId String
+  musicProfile   MusicProfile @relation(fields: [musicProfileId], references: [id], onDelete: Cascade)
+  trackId        String
+  track          MusicTrack   @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  rank           Int          @default(0)
+
+  @@id([musicProfileId, trackId])
+  @@index([trackId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Activity / movement identity  (lifestyle signal, NOT a fitness tracker)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model ActivityType {
+  id       String                 @id @default(cuid())
+  slug     String                 @unique
+  label    String
+  category String // "endurance" | "strength" | "outdoor" | "mind-body" | "team" | "social"
+  profiles ActivityProfileType[]
+}
+
+model ActivityProfile {
+  id                String                @id @default(cuid())
+  profileId         String                @unique
+  profile           Profile               @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  preferredLifestyle String? // "early mornings outside", "slow weekends, long walks"
+  activeDaysPerWeek Int? // 0-7, self-reported, coarse on purpose
+  consistencyNote   String?
+  visibility        Visibility            @default(PUBLIC)
+  updatedAt         DateTime              @updatedAt
+
+  types             ActivityProfileType[]
+}
+
+model ActivityProfileType {
+  activityProfileId String
+  activityProfile   ActivityProfile @relation(fields: [activityProfileId], references: [id], onDelete: Cascade)
+  activityTypeId    String
+  activityType      ActivityType    @relation(fields: [activityTypeId], references: [id], onDelete: Cascade)
+  interestLevel     Int             @default(2) // 1 curious .. 3 core to my life
+  isFavorite        Boolean         @default(false)
+
+  @@id([activityProfileId, activityTypeId])
+  @@index([activityTypeId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Preferences & privacy
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Preference {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  minAge         Int      @default(18)
+  maxAge         Int      @default(45)
+  maxDistanceKm  Int      @default(50)
+  genders        Gender[] // empty = open to everyone
+  intents        RelationshipIntent[]
+  globalMode     Boolean  @default(false) // ignore distance, show worldwide
+  updatedAt      DateTime @updatedAt
+}
+
+model PrivacySetting {
+  id                 String            @id @default(cuid())
+  userId             String            @unique
+  user               User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profileVisibility  ProfileVisibility @default(DISCOVERABLE)
+  musicVisibility    Visibility        @default(PUBLIC)
+  activityVisibility Visibility        @default(CONNECTIONS)
+  distanceVisibility Visibility        @default(PUBLIC) // PUBLIC = show approx distance, PRIVATE = hide
+  showActiveStatus   Boolean           @default(true)
+  showAgeExact       Boolean           @default(true)
+  incognito          Boolean           @default(false) // only people I like see me
+  discoveryPaused    Boolean           @default(false)
+  updatedAt          DateTime          @updatedAt
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Discovery / matching / conversation
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Like {
+  id         String   @id @default(cuid())
+  actorId    String
+  actor      User     @relation("LikesByActor", fields: [actorId], references: [id], onDelete: Cascade)
+  targetId   String
+  target     User     @relation("LikesOnTarget", fields: [targetId], references: [id], onDelete: Cascade)
+  kind       LikeKind
+  comment    String?  @db.VarChar(300) // reaction to a specific profile element
+  elementRef String? // "photo:<id>" | "prompt:<id>" | "artist:<id>" | "activity:<slug>"
+  createdAt  DateTime @default(now())
+
+  @@unique([actorId, targetId])
+  @@index([targetId, kind])
+  @@index([actorId, createdAt])
+}
+
+model Match {
+  id          String            @id @default(cuid())
+  userAId     String // always the lexicographically smaller id
+  userA       User              @relation("MatchUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userBId     String
+  userB       User              @relation("MatchUserB", fields: [userBId], references: [id], onDelete: Cascade)
+  createdAt   DateTime          @default(now())
+  closedAt    DateTime?
+  closedById  String?
+  closeReason MatchCloseReason?
+  seenByA     Boolean           @default(false)
+  seenByB     Boolean           @default(false)
+
+  conversation Conversation?
+
+  @@unique([userAId, userBId])
+  @@index([userAId, closedAt])
+  @@index([userBId, closedAt])
+}
+
+model Conversation {
+  id            String    @id @default(cuid())
+  matchId       String    @unique
+  match         Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  createdAt     DateTime  @default(now())
+  lastMessageAt DateTime?
+  messages      Message[]
+
+  @@index([lastMessageAt])
+}
+
+model Message {
+  id             String             @id @default(cuid())
+  conversationId String
+  conversation   Conversation       @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String?
+  sender         User?              @relation(fields: [senderId], references: [id], onDelete: SetNull)
+  body           String             @db.VarChar(4000)
+  systemType     MessageSystemType?
+  createdAt      DateTime           @default(now())
+  readAt         DateTime?
+  deletedAt      DateTime?
+
+  @@index([conversationId, createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Verification, safety & trust  (PRIVATE — never surfaced as a public score)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model IdentityCheck {
+  id          String              @id @default(cuid())
+  userId      String
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind        IdentityCheckKind
+  status      IdentityCheckStatus @default(PENDING)
+  provider    String? // third-party IDV vendor; we store the reference, not the documents
+  providerRef String?
+  evidenceKey String? // transient selfie key, deleted after decision
+  reviewerId  String?
+  notes       String?
+  createdAt   DateTime            @default(now())
+  decidedAt   DateTime?
+  expiresAt   DateTime?
+
+  @@index([userId, kind])
+  @@index([status])
+}
+
+model Report {
+  id            String         @id @default(cuid())
+  reporterId    String
+  reporter      User           @relation("ReportsByReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  subjectUserId String
+  subjectUser   User           @relation("ReportsAboutSubject", fields: [subjectUserId], references: [id], onDelete: Cascade)
+  category      ReportCategory
+  details       String?        @db.VarChar(2000)
+  context       Json? // { conversationId, messageIds, photoId, ... }
+  status        ReportStatus   @default(OPEN)
+  handledById   String?
+  handledBy     User?          @relation("ReportsHandledBy", fields: [handledById], references: [id], onDelete: SetNull)
+  resolutionNote String?
+  createdAt     DateTime       @default(now())
+  resolvedAt    DateTime?
+
+  @@index([subjectUserId, status])
+  @@index([status, createdAt])
+}
+
+model Block {
+  id        String   @id @default(cuid())
+  blockerId String
+  blocker   User     @relation("BlocksByBlocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blockedId String
+  blocked   User     @relation("BlocksAgainstBlocked", fields: [blockedId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([blockerId, blockedId])
+  @@index([blockedId])
+}
+
+model SafetyEvent {
+  id        String          @id @default(cuid())
+  userId    String
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      SafetyEventType
+  severity  SafetySeverity  @default(INFO)
+  source    String // "auth" | "moderation" | "matching" | "system"
+  metadata  Json?
+  createdAt DateTime        @default(now())
+
+  @@index([userId, type])
+  @@index([type, createdAt])
+}
+
+model ModerationAction {
+  id           String               @id @default(cuid())
+  targetUserId String
+  targetUser   User                 @relation("ModerationTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+  actorId      String?
+  actor        User?                @relation("ModerationActor", fields: [actorId], references: [id], onDelete: SetNull)
+  action       ModerationActionType
+  reason       String
+  reportId     String?
+  expiresAt    DateTime?
+  createdAt    DateTime             @default(now())
+
+  @@index([targetUserId, createdAt])
+}
+
+model TrustProfile {
+  id                   String    @id @default(cuid())
+  userId               String    @unique
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tier                 TrustTier @default(NEW)
+  emailVerified        Boolean   @default(false)
+  phoneVerified        Boolean   @default(false)
+  photoVerified        Boolean   @default(false)
+  identityVerified     Boolean   @default(false)
+  reportsReceived      Int       @default(0)
+  moderationStrikes    Int       @default(0)
+  spamSignals          Int       @default(0)
+  duplicateSignals     Int       @default(0)
+  lastReviewedAt       DateTime?
+  updatedAt            DateTime  @updatedAt
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action     String // "moderation.ban" | "verification.approve" | ...
+  entityType String
+  entityId   String
+  metadata   Json?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorId, createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Notifications
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  payload   Json?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+}
+
+model NotificationPreference {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  newLike     Boolean  @default(true)
+  newMatch    Boolean  @default(true)
+  newMessage  Boolean  @default(true)
+  safety      Boolean  @default(true)
+  security    Boolean  @default(true)
+  product     Boolean  @default(false)
+  channelEmail Boolean @default(true)
+  channelPush Boolean  @default(true)
+  updatedAt   DateTime @updatedAt
+}
