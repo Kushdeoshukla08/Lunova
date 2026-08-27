@@ -34,6 +34,9 @@ export interface ConversationThread {
   };
   messages: ThreadMessage[];
   closed: boolean;
+  /** Why the two matched — highlight kinds + the single strongest thing. */
+  matchedThrough: string[];
+  matchHeadline: string | null;
 }
 
 function otherIdOf(match: { userAId: string; userBId: string }, me: string) {
@@ -139,7 +142,16 @@ export async function getConversation(
     where: { id: conversationId },
     select: {
       id: true,
-      match: { select: { id: true, userAId: true, userBId: true, closedAt: true } },
+      match: {
+        select: {
+          id: true,
+          userAId: true,
+          userBId: true,
+          closedAt: true,
+          contextHeadline: true,
+          contextTags: true,
+        },
+      },
       messages: {
         orderBy: { createdAt: "asc" },
         take: 200,
@@ -207,6 +219,8 @@ export async function getConversation(
         readAt: m.readAt,
       })),
     closed: Boolean(match.closedAt),
+    matchedThrough: match.contextTags,
+    matchHeadline: match.contextHeadline,
   };
 }
 

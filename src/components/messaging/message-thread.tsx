@@ -16,13 +16,16 @@ export function MessageThread({
   initialMessages,
   otherName,
   closed,
+  matchHeadline,
 }: {
   conversationId: string;
   initialMessages: ThreadMessage[];
   otherName: string;
   closed: boolean;
+  matchHeadline?: string | null;
 }) {
   const router = useRouter();
+  const noHumanMessages = initialMessages.every((m) => m.system);
   // `initialMessages` (server truth) is the source for confirmed messages.
   // Local state holds only in-flight/failed sends, merged at render time.
   const [pending, setPending] = React.useState<PendingMsg[]>([]);
@@ -131,6 +134,20 @@ export function MessageThread({
             )}
           </div>
         ))}
+
+        {noHumanMessages && !closed && (
+          <div className="mx-auto mt-4 max-w-xs rounded-[var(--radius-md)] bg-sand/60 px-4 py-3 text-center">
+            <p className="editorial text-[0.95rem] leading-snug text-ink text-pretty">
+              {matchHeadline
+                ? `${matchHeadline}. That's your opening.`
+                : "Open with something specific from their profile."}
+            </p>
+            <p className="mt-1 text-xs text-ink-faint">
+              A real first line beats &ldquo;hey&rdquo; every time.
+            </p>
+          </div>
+        )}
+
         <div ref={endRef} />
       </div>
 

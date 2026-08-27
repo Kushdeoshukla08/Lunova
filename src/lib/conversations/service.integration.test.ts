@@ -62,6 +62,8 @@ d("conversations + safety (DB)", () => {
     expect(thread).toBeTruthy();
     expect(thread!.other.userId).toBe(ids[1]);
     expect(thread!.messages[0].system).toBe(true); // MATCH_CREATED
+    // the pair shared enough that a match context was captured
+    expect(Array.isArray(thread!.matchedThrough)).toBe(true);
     expect(await svc.getConversation("someone-else", conversationId)).toBeNull();
   });
 

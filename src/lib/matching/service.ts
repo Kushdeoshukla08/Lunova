@@ -1,6 +1,9 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { notify } from "@/lib/notifications/service";
+import { loadCompatInput } from "@/lib/compatibility/load";
+import { computeCompatibility } from "@/lib/compatibility/engine";
+import type { Highlight } from "@/lib/compatibility/types";
 import type { LikeKind } from "@/generated/prisma/enums";
 
 export interface LikeOutcome {
@@ -8,6 +11,27 @@ export interface LikeOutcome {
   matchId?: string;
   conversationId?: string;
   otherName?: string;
+  /** Highlights between the two, so the client can show them in the match moment. */
+  sharedHighlights?: Highlight[];
+}
+
+/** Why a pair matched — captured at match time. */
+async function matchContext(
+  aId: string,
+  bId: string,
+): Promise<{ headline: string | null; tags: string[]; highlights: Highlight[] }> {
+  try {
+    const [a, b] = await Promise.all([loadCompatInput(aId), loadCompatInput(bId)]);
+    if (!a || !b) return { headline: null, tags: [], highlights: [] };
+    const r = computeCompatibility(a, b);
+    return {
+      headline: r.highlights[0]?.text ?? null,
+      tags: [...new Set(r.highlights.map((h) => h.kind))],
+      highlights: r.highlights,
+    };
+  } catch {
+    return { headline: null, tags: [], highlights: [] };
+  }
 }
 
 /** Ordered pair so a Match row is unique regardless of who liked first. */
@@ -47,6 +71,7 @@ export async function recordLikeAndMaybeMatch(input: {
   }
 
   const [userAId, userBId] = orderedPair(actorId, targetId);
+  const ctx = await matchContext(userAId, userBId);
 
   const match = await db.$transaction(async (tx) => {
     const existing = await tx.match.findUnique({
@@ -59,6 +84,8 @@ export async function recordLikeAndMaybeMatch(input: {
       data: {
         userAId,
         userBId,
+        contextHeadline: ctx.headline,
+        contextTags: ctx.tags,
         conversation: { create: {} },
       },
       select: { id: true, conversation: { select: { id: true } } },
@@ -67,7 +94,9 @@ export async function recordLikeAndMaybeMatch(input: {
       data: {
         conversationId: created.conversation!.id,
         systemType: "MATCH_CREATED",
-        body: "You connected on Lunova. Say something real.",
+        body: ctx.headline
+          ? `You connected — ${lowerFirst(ctx.headline)}.`
+          : "You connected on Lunova. Say something real.",
       },
     });
     return created;
@@ -88,5 +117,10 @@ export async function recordLikeAndMaybeMatch(input: {
     matchId: match.id,
     conversationId: match.conversation?.id,
     otherName: targetProfile?.displayName ?? actorProfile?.displayName ?? "someone",
+    sharedHighlights: ctx.highlights,
   };
+}
+
+function lowerFirst(s: string): string {
+  return s.charAt(0).toLowerCase() + s.slice(1);
 }

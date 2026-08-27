@@ -590,6 +590,12 @@ model Match {
   seenByA     Boolean           @default(false)
   seenByB     Boolean           @default(false)
 
+  // Why this pair matched, captured at match time so the conversation keeps
+  // its context. `contextTags` are highlight kinds (music/activity/…);
+  // `contextHeadline` is the single strongest shared thing.
+  contextHeadline String?
+  contextTags     String[]
+
   conversation Conversation?
 
   @@unique([userAId, userBId])

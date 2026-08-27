@@ -59,12 +59,44 @@ export default async function ConversationPage(
         />
       </header>
 
+      {convo.matchedThrough.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-line py-2.5 text-xs text-ink-faint">
+          <span>Matched through</span>
+          {convo.matchedThrough.slice(0, 3).map((k) => (
+            <span
+              key={k}
+              className="inline-flex items-center gap-1 rounded-full bg-sand px-2 py-0.5 text-ink-soft"
+            >
+              {MATCH_KIND_ICON[k] ?? "·"} {MATCH_KIND_WORD[k] ?? k}
+            </span>
+          ))}
+        </div>
+      )}
+
       <MessageThread
         conversationId={convo.conversationId}
         initialMessages={convo.messages}
         otherName={convo.other.name}
         closed={convo.closed}
+        matchHeadline={convo.matchHeadline}
       />
     </div>
   );
 }
+
+const MATCH_KIND_WORD: Record<string, string> = {
+  music: "music",
+  activity: "movement",
+  interest: "interests",
+  intent: "intent",
+  distance: "nearby",
+  prompt: "how you think",
+};
+const MATCH_KIND_ICON: Record<string, string> = {
+  music: "🎵",
+  activity: "🏃",
+  interest: "✦",
+  intent: "🎯",
+  distance: "📍",
+  prompt: "💬",
+};
