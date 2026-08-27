@@ -143,4 +143,27 @@ d("discovery + matching (DB)", () => {
     const feed = await getDiscoveryFeed(ids[0], { limit: 10 });
     expect(feed.some((p) => p.userId === ids[1])).toBe(false);
   });
+
+  it("the seeded demo profiles produce a real ranked feed with highlights", async () => {
+    const maya = await db.user.findUnique({
+      where: { email: "maya@demo.lunova.local" },
+      select: { id: true },
+    });
+    if (!maya) return; // demo not seeded — skip silently
+    const feed = await getDiscoveryFeed(maya.id, { limit: 10 });
+    expect(feed.length).toBeGreaterThanOrEqual(2);
+    // every card carries at least one human-language reason
+    expect(feed.every((p) => p.compatibility.highlights.length > 0)).toBe(true);
+    // Arjun shares an artist (Big Thief) + activities with Maya → music/activity highlight
+    const arjun = feed.find((p) => p.displayName === "Arjun");
+    expect(arjun).toBeTruthy();
+    expect(
+      arjun!.compatibility.highlights.some(
+        (h) => h.kind === "music" || h.kind === "activity" || h.kind === "interest",
+      ),
+    ).toBe(true);
+    expect(arjun!.photos[0]?.url).toMatch(/^\/media\/photos\/demo\//);
+    // not a strict monotonic guarantee, but the top card should not be the weakest label
+    expect(feed[0].compatibility.label).not.toBe("Worth a look");
+  });
 });
