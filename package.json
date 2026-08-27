@@ -18,7 +18,8 @@
     "db:seed": "tsx prisma/seed.ts",
     "pg:start": "node scripts/pg.mjs start",
     "pg:stop": "node scripts/pg.mjs stop",
-    "pg:status": "node scripts/pg.mjs status"
+    "pg:status": "node scripts/pg.mjs status",
+    "verify:onboarding": "tsx scripts/verify-onboarding.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",
