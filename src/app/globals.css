@@ -1,31 +1,42 @@
 @import "tailwindcss";
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   Lunova design tokens
-   Warm, editorial, human, quietly celestial. One accent ("glow"), one cool
-   secondary ("moonlight") used sparingly for music / connection moments.
-   ───────────────────────────────────────────────────────────────────────────── */
+/* ═════════════════════════════════════════════════════════════════════════════
+   THE LUNOVA VISUAL LANGUAGE
+   Sophisticated · warm · intimate · modern · quietly celestial.
+   Two voices: FRAUNCES (display + editorial — prompts, the "why", moments) and
+   INTER (interface). One warm accent — "glow" (dusk rose). One cool accent —
+   "moonlight" (periwinkle) — reserved for music and connection moments.
+   Depth is real: four elevation steps + a top-edge highlight on raised surfaces.
+   Motion has one signature — "orbit": rise a little, settle with a soft spring.
+   ═════════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* Neutrals — warm, not grey */
+  /* Neutrals — warm, never grey */
   --paper: #fbf6f1;
+  --paper-dim: #f6efe6;      /* recessed areas, page behind cards */
   --paper-raised: #ffffff;
   --sand: #f1e9df;
   --sand-strong: #e7dccd;
-  --ink: #221c26;
+  --ink: #201a24;
   --ink-soft: #4b4350;
   --ink-faint: #7c7382;
-  --line: #e6dccf;
+  --line: #e8ded1;
   --line-strong: #d8cbb9;
 
-  /* Brand */
-  --glow: #d0566a;        /* dusk rose — primary action + brand */
+  /* Brand — glow (dusk rose) */
+  --glow: #cf5569;
   --glow-press: #b8475b;
-  --glow-soft: #f7e6e6;   /* tint surface */
-  --glow-ring: #eab9c1;
+  --glow-soft: #f8e7e7;
+  --glow-ring: #ecbcc4;
 
-  --moonlight: #5b63c4;   /* periwinkle — music / celestial accents only */
-  --moonlight-soft: #e9e9f6;
+  /* Moonlight (periwinkle) — music + celestial + "shared" moments */
+  --moonlight: #5a62c6;
+  --moonlight-soft: #eae9f7;
+  --moonlight-ink: #3f45a0;
+
+  /* Halo — the warm celestial glow behind heroes and match moments */
+  --halo-warm: #f6d9c4;
+  --halo-cool: #d9d7f4;
 
   /* Status */
   --ok: #3c9a6d;
@@ -35,35 +46,39 @@
   --danger: #c5473c;
   --danger-soft: #f7e2df;
 
-  /* Elevation — restrained */
-  --shadow-sm: 0 1px 2px rgba(34, 28, 38, 0.06), 0 1px 1px rgba(34, 28, 38, 0.04);
-  --shadow-md: 0 6px 20px -6px rgba(34, 28, 38, 0.14), 0 2px 6px -2px rgba(34, 28, 38, 0.08);
-  --shadow-lg: 0 24px 60px -18px rgba(34, 28, 38, 0.28);
+  /* Elevation — four real steps + a hairline highlight on raised surfaces */
+  --shadow-sm: 0 1px 2px rgba(32, 26, 36, 0.05), 0 1px 1px rgba(32, 26, 36, 0.04);
+  --shadow-md: 0 6px 20px -6px rgba(32, 26, 36, 0.13), 0 2px 6px -2px rgba(32, 26, 36, 0.07);
+  --shadow-lg: 0 22px 55px -16px rgba(32, 26, 36, 0.24), 0 8px 20px -10px rgba(32, 26, 36, 0.12);
+  --shadow-xl: 0 40px 90px -24px rgba(32, 26, 36, 0.34);
+  --edge: inset 0 1px 0 rgba(255, 255, 255, 0.6);
 
-  /* Radii */
-  --radius-xs: 6px;
-  --radius-sm: 10px;
-  --radius-md: 14px;
-  --radius-lg: 20px;
-  --radius-xl: 28px;
+  /* Radii — generous, soft */
+  --radius-xs: 8px;
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 22px;
+  --radius-xl: 30px;
 
-  /* Motion */
+  /* Motion — one signature: "orbit" (rise + settle) */
+  --ease-orbit: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
-  --dur-fast: 140ms;
-  --dur: 220ms;
-  --dur-slow: 360ms;
+  --dur-fast: 130ms;
+  --dur: 240ms;
+  --dur-slow: 420ms;
+  --dur-moment: 700ms;
 
   color-scheme: light;
 }
 
-/* Dark palette — role-for-role swap. Applied when the OS prefers dark and the
-   user has not forced light, or when the theme toggle sets data-theme="dark". */
+/* Dark — intimate, deep aubergine, not flat grey. Role-for-role. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --paper: #161219;
+    --paper: #151119;
+    --paper-dim: #100d16;
     --paper-raised: #1e1922;
-    --sand: #241d28;
-    --sand-strong: #2d2532;
+    --sand: #241d29;
+    --sand-strong: #2e2634;
     --ink: #f4ecf2;
     --ink-soft: #c7bcc8;
     --ink-faint: #928795;
@@ -72,11 +87,15 @@
 
     --glow: #e0728a;
     --glow-press: #ec8199;
-    --glow-soft: #33222b;
+    --glow-soft: #35222c;
     --glow-ring: #6d3f4b;
 
     --moonlight: #9aa2ef;
-    --moonlight-soft: #232544;
+    --moonlight-soft: #21233f;
+    --moonlight-ink: #b9beff;
+
+    --halo-warm: #3a2a2f;
+    --halo-cool: #262744;
 
     --ok: #5cbb8b;
     --ok-soft: #1c2f27;
@@ -85,19 +104,22 @@
     --danger: #e0675c;
     --danger-soft: #33211f;
 
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
     --shadow-md: 0 8px 24px -8px rgba(0, 0, 0, 0.55);
-    --shadow-lg: 0 28px 64px -20px rgba(0, 0, 0, 0.7);
+    --shadow-lg: 0 24px 60px -18px rgba(0, 0, 0, 0.68);
+    --shadow-xl: 0 44px 96px -26px rgba(0, 0, 0, 0.78);
+    --edge: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 
     color-scheme: dark;
   }
 }
 
 :root[data-theme="dark"] {
-  --paper: #161219;
+  --paper: #151119;
+  --paper-dim: #100d16;
   --paper-raised: #1e1922;
-  --sand: #241d28;
-  --sand-strong: #2d2532;
+  --sand: #241d29;
+  --sand-strong: #2e2634;
   --ink: #f4ecf2;
   --ink-soft: #c7bcc8;
   --ink-faint: #928795;
@@ -106,11 +128,15 @@
 
   --glow: #e0728a;
   --glow-press: #ec8199;
-  --glow-soft: #33222b;
+  --glow-soft: #35222c;
   --glow-ring: #6d3f4b;
 
   --moonlight: #9aa2ef;
-  --moonlight-soft: #232544;
+  --moonlight-soft: #21233f;
+  --moonlight-ink: #b9beff;
+
+  --halo-warm: #3a2a2f;
+  --halo-cool: #262744;
 
   --ok: #5cbb8b;
   --ok-soft: #1c2f27;
@@ -119,17 +145,20 @@
   --danger: #e0675c;
   --danger-soft: #33211f;
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
   --shadow-md: 0 8px 24px -8px rgba(0, 0, 0, 0.55);
-  --shadow-lg: 0 28px 64px -20px rgba(0, 0, 0, 0.7);
+  --shadow-lg: 0 24px 60px -18px rgba(0, 0, 0, 0.68);
+  --shadow-xl: 0 44px 96px -26px rgba(0, 0, 0, 0.78);
+  --edge: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 
   color-scheme: dark;
 }
 
-/* Map tokens into Tailwind's theme so utilities exist: bg-paper, text-ink,
-   rounded-lg, font-display, shadow-md, ease-spring, etc. */
+/* Tailwind theme — utilities: bg-paper, text-ink, rounded-lg, font-display,
+   shadow-lg, ease-orbit, text-editorial, etc. */
 @theme inline {
   --color-paper: var(--paper);
+  --color-paper-dim: var(--paper-dim);
   --color-paper-raised: var(--paper-raised);
   --color-sand: var(--sand);
   --color-sand-strong: var(--sand-strong);
@@ -146,6 +175,7 @@
 
   --color-moonlight: var(--moonlight);
   --color-moonlight-soft: var(--moonlight-soft);
+  --color-moonlight-ink: var(--moonlight-ink);
 
   --color-ok: var(--ok);
   --color-ok-soft: var(--ok-soft);
@@ -163,11 +193,21 @@
   --shadow-sm: var(--shadow-sm);
   --shadow-md: var(--shadow-md);
   --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
 
+  --ease-orbit: var(--ease-orbit);
   --ease-spring: var(--ease-spring);
 
   --font-display: var(--font-fraunces), ui-serif, Georgia, "Times New Roman", serif;
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  /* Type scale — display uses Fraunces, tightening as it grows */
+  --text-hero: 3.25rem;
+  --text-hero--line-height: 1.02;
+  --text-hero--letter-spacing: -0.028em;
+  --text-editorial: 1.2rem;
+  --text-editorial--line-height: 1.5;
+  --text-editorial--letter-spacing: -0.005em;
 }
 
 /* ─── Base ─────────────────────────────────────────────────────────────────── */
@@ -191,11 +231,13 @@ body {
 
 h1, h2, h3, h4 {
   font-family: var(--font-display);
+  font-optical-sizing: auto;
   font-weight: 500;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.018em;
   color: var(--ink);
   text-wrap: balance;
 }
+h1 { letter-spacing: -0.024em; }
 
 /* Accessible focus — visible, on-brand, never removed */
 :focus-visible {
@@ -221,24 +263,122 @@ h1, h2, h3, h4 {
   }
 }
 
+/* ─── Signature motion ─────────────────────────────────────────────────────── */
+
+@keyframes orbit-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes orbit-in-sm {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes card-enter {
+  from { opacity: 0; transform: translateY(16px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes card-leave {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to   { opacity: 0; transform: translateY(-14px) scale(0.97); }
+}
+@keyframes halo-breathe {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50%      { opacity: 1; transform: scale(1.06); }
+}
+
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
+  .text-balance { text-wrap: balance; }
+  .text-pretty { text-wrap: pretty; }
+
+  /* Editorial voice — Fraunces, for prompts, quotes, "the why" */
+  .editorial {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+    font-weight: 400;
+    letter-spacing: -0.006em;
   }
-  .text-pretty {
-    text-wrap: pretty;
+
+  /* Overline / meta */
+  .overline {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
   }
+
+  /* Surfaces */
   .surface-card {
     background: var(--paper-raised);
     border: 1px solid var(--line);
     border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-sm);
+    box-shadow: var(--shadow-sm), var(--edge);
   }
-  /* subtle celestial wash for hero / match moments — not a space theme */
+  .surface-raised {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md), var(--edge);
+  }
+  .card-lift {
+    transition:
+      transform var(--dur) var(--ease-orbit),
+      box-shadow var(--dur) var(--ease-orbit),
+      border-color var(--dur) var(--ease-orbit);
+  }
+  .card-lift:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lg), var(--edge);
+    border-color: var(--line-strong);
+  }
+
+  /* Reveal — the signature entrance. Stagger via inline --i (index). */
+  .reveal {
+    animation: orbit-in var(--dur-slow) var(--ease-orbit) both;
+    animation-delay: calc(var(--i, 0) * 45ms);
+  }
+  .reveal-sm {
+    animation: orbit-in-sm var(--dur) var(--ease-orbit) both;
+    animation-delay: calc(var(--i, 0) * 35ms);
+  }
+
+  /* The celestial wash — behind heroes, match moments, auth. Not a space theme. */
+  .aura,
   .aurora {
+    position: relative;
     background:
-      radial-gradient(60% 50% at 15% 0%, color-mix(in oklab, var(--glow) 22%, transparent), transparent 70%),
-      radial-gradient(50% 45% at 100% 15%, color-mix(in oklab, var(--moonlight) 18%, transparent), transparent 70%),
+      radial-gradient(64% 52% at 12% -6%, color-mix(in oklab, var(--halo-warm) 78%, transparent), transparent 68%),
+      radial-gradient(52% 46% at 104% 8%, color-mix(in oklab, var(--halo-cool) 70%, transparent), transparent 66%),
       var(--paper);
   }
+
+  /* A soft radial glow element (place absolutely behind a subject) */
+  .halo {
+    background: radial-gradient(circle at center, color-mix(in oklab, var(--glow) 26%, transparent), transparent 62%);
+    filter: blur(2px);
+  }
+  .halo-moon {
+    background: radial-gradient(circle at center, color-mix(in oklab, var(--moonlight) 24%, transparent), transparent 62%);
+    filter: blur(2px);
+  }
+  .halo-breathe { animation: halo-breathe 6s ease-in-out infinite; }
+
+  /* Waypoint — a hairline divider with a small orbiting dot */
+  .waypoint {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    color: var(--ink-faint);
+  }
+  .waypoint::before,
+  .waypoint::after {
+    content: "";
+    height: 1px;
+    flex: 1;
+    background: var(--line);
+  }
+
+  /* Hide scrollbars on horizontal scrollers (photo strips) */
+  .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
 }

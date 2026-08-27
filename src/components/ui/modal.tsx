@@ -62,7 +62,7 @@ export function Modal({
             "w-full bg-paper-raised shadow-[var(--shadow-lg)] border border-line",
             "rounded-t-[var(--radius-xl)] sm:rounded-[var(--radius-xl)]",
             "max-h-[92vh] overflow-y-auto",
-            "motion-safe:animate-[modal-in_var(--dur)_var(--ease-spring)]",
+            "motion-safe:animate-[orbit-in_var(--dur)_var(--ease-orbit)]",
             widths[size],
             className,
           )}
@@ -102,12 +102,6 @@ export function Modal({
           )}
         </div>
       )}
-      <style>{`
-        @keyframes modal-in {
-          from { opacity: 0; transform: translateY(8px) scale(0.98); }
-          to   { opacity: 1; transform: translateY(0) scale(1); }
-        }
-      `}</style>
     </dialog>
   );
 }
