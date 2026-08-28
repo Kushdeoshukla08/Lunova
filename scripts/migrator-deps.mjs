@@ -17,9 +17,9 @@
  *
  * Used two ways:
  *   - Docker build:  node scripts/migrator-deps.mjs <outDir>   (copies them)
- *   - The test:      imports MIGRATOR_PACKAGES and links them
+ *   - The test:      imports resolveMigratorClosure() and copies the same set
  */
-import { cpSync, existsSync, mkdirSync, realpathSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, realpathSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -30,10 +30,19 @@ import { fileURLToPath } from "node:url";
 export const MIGRATOR_BASE_PACKAGES = ["prisma", "@prisma", "dotenv"];
 
 /**
- * The rest of what `prisma migrate deploy` loads. Mostly `@prisma/config`'s
- * loader stack: effect + c12 and their runtime dependencies.
+ * The subgraphs the CLI enters, found by running `migrate deploy` in a
+ * reconstructed runner image and adding only what it asked for. Mostly
+ * `@prisma/config`'s loader stack: effect + c12.
+ *
+ * These are ROOTS, not the final list. What actually gets copied is their
+ * transitive `dependencies` closure (see `resolveMigratorClosure`) — a leaf that
+ * one of these requires only on Linux, or only under a lock, is invisible to a
+ * probe run on a developer's machine. That is not hypothetical: a hand-written
+ * leaf list shipped an image whose migration died on `Cannot find module
+ * 'graceful-fs'`, which `proper-lockfile` declares and only reaches for in the
+ * container.
  */
-export const MIGRATOR_PACKAGES = [
+export const MIGRATOR_ROOTS = [
   "c12",
   "confbox",
   "deepmerge-ts",
@@ -58,22 +67,44 @@ export const MIGRATOR_PACKAGES = [
   "zeptomatch",
 ];
 
-/** Copy the extra packages into `outDir`, preserving the node_modules layout. */
-export function stageMigratorDeps(repoRoot, outDir) {
-  const copied = [];
-  const missing = [];
-  for (const name of MIGRATOR_PACKAGES) {
-    const src = join(repoRoot, "node_modules", name);
-    if (!existsSync(src)) {
-      missing.push(name);
-      continue;
+/**
+ * The roots plus everything they declare, transitively, resolved against the
+ * installed tree so npm's hoisting is respected.
+ *
+ * Deliberately follows `dependencies` only: `devDependencies` are not installed
+ * for a consumer, and `optionalDependencies` are allowed to be absent.
+ */
+export function resolveMigratorClosure(repoRoot) {
+  const nodeModules = join(repoRoot, "node_modules");
+  const resolved = new Set();
+  const missing = new Set();
+
+  const visit = (name) => {
+    if (resolved.has(name) || missing.has(name)) return;
+    const manifest = join(nodeModules, name, "package.json");
+    if (!existsSync(manifest)) {
+      missing.add(name);
+      return;
     }
+    resolved.add(name);
+    const json = JSON.parse(readFileSync(manifest, "utf8"));
+    for (const dep of Object.keys(json.dependencies ?? {})) visit(dep);
+  };
+
+  for (const root of MIGRATOR_ROOTS) visit(root);
+  return { packages: [...resolved].sort(), missing: [...missing] };
+}
+
+/** Copy the closure into `outDir`, preserving the node_modules layout. */
+export function stageMigratorDeps(repoRoot, outDir) {
+  const { packages, missing } = resolveMigratorClosure(repoRoot);
+  for (const name of packages) {
+    const src = join(repoRoot, "node_modules", name);
     const dst = join(outDir, name);
     mkdirSync(dirname(dst), { recursive: true });
     cpSync(src, dst, { recursive: true, dereference: true });
-    copied.push(name);
   }
-  return { copied, missing };
+  return { copied: packages, missing };
 }
 
 // CLI entry — used from the Dockerfile build stage. Guarded by an exact path
