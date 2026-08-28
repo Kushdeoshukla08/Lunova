@@ -20,7 +20,8 @@
     "pg:stop": "node scripts/pg.mjs stop",
     "pg:status": "node scripts/pg.mjs status",
     "verify:onboarding": "tsx scripts/verify-onboarding.ts",
-    "test:db": "RUN_DB_TESTS=1 vitest run"
+    "test:db": "RUN_DB_TESTS=1 vitest run",
+    "db:migrate:deploy": "prisma migrate deploy"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",
