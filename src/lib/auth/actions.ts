@@ -3,7 +3,9 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
+import { env } from "@/lib/env";
 import { rateLimiter, RATE_RULES } from "@/lib/rate-limit";
+import { clientIpFrom } from "@/lib/security/client-ip";
 import { hashPassword, verifyPasswordConstantTime } from "./password";
 import { createSession, destroySession } from "./session";
 import { getCurrentUser } from "./dal";
@@ -34,14 +36,7 @@ export type AuthFormState = {
 const CODE_TTL_MS = 15 * 60 * 1000;
 
 async function clientIp(): Promise<string> {
-  const h = await headers();
-  // Prefer a header a trusted reverse proxy sets to a single value. The leftmost
-  // x-forwarded-for entry is client-controlled and only a best-effort fallback.
-  return (
-    h.get("x-real-ip")?.trim() ||
-    h.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    "unknown"
-  );
+  return clientIpFrom(await headers(), { trustedProxyHops: env.TRUSTED_PROXY_HOPS });
 }
 
 async function issueEmailCode(userId: string, email: string): Promise<{ ok: boolean }> {

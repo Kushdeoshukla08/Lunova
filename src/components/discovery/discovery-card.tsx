@@ -54,7 +54,8 @@ export function DiscoveryCard({
                 <div className="flex items-center gap-2">
                   <h2 className="font-display text-[1.6rem] leading-none tracking-tight text-paper">
                     {profile.displayName}
-                    <span className="text-paper/80">, {profile.age}</span>
+                    {/* Members who turned off "show my exact age" get a band. */}
+                    <span className="text-paper/80">, {profile.age ?? profile.ageBand}</span>
                   </h2>
                   {profile.verified.photo && (
                     <span className="text-moonlight">

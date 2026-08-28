@@ -1,8 +1,20 @@
+import { createHash, timingSafeEqual } from "node:crypto";
 import { env } from "@/lib/env";
 import { metrics } from "@/lib/observability/metrics";
 import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * `a !== b` on a secret leaks its prefix through response timing: the comparison
+ * stops at the first differing byte. Hash both sides to a fixed length first so
+ * the comparison itself is constant-time regardless of input length.
+ */
+function tokenMatches(presented: string | null, expected: string): boolean {
+  if (!presented) return false;
+  const digest = (s: string) => createHash("sha256").update(s).digest();
+  return timingSafeEqual(digest(presented), digest(expected));
+}
 
 /**
  * Prometheus exposition of the in-process system metrics. Disabled unless
@@ -13,9 +25,11 @@ export async function GET(request: Request) {
   const token = env.METRICS_TOKEN;
   if (!token) return new Response("metrics disabled", { status: 404 });
 
-  const auth = request.headers.get("authorization");
-  if (auth !== `Bearer ${token}`) {
-    return new Response("unauthorized", { status: 401 });
+  if (!tokenMatches(request.headers.get("authorization"), `Bearer ${token}`)) {
+    return new Response("unauthorized", {
+      status: 401,
+      headers: { "Cache-Control": "no-store" },
+    });
   }
 
   // Refresh a couple of gauges that are cheap to sample on scrape.

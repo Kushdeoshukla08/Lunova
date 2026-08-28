@@ -7,7 +7,7 @@ import {
 import type { CompatInput, Highlight } from "@/lib/compatibility/types";
 import { exposeVariant } from "@/lib/experiments/assign";
 import type { WeightConfig } from "@/lib/experiments/registry";
-import { ageFromBirthdate, describeDistance } from "@/lib/compatibility/geo";
+import { ageFromBirthdate, describeAgeBand, describeDistance } from "@/lib/compatibility/geo";
 
 export interface DiscoveryPrompt {
   id: string;
@@ -18,7 +18,10 @@ export interface DiscoveryPrompt {
 export interface DiscoveryProfile {
   userId: string;
   displayName: string;
-  age: number;
+  /** Exact age — null when this member chose not to show it. */
+  age: number | null;
+  /** Always present, e.g. "early 30s". Shown when `age` is withheld. */
+  ageBand: string;
   pronouns: string | null;
   bio: string | null;
   city: string | null;
@@ -205,6 +208,9 @@ const candidateSelect = {
     },
   },
   trust: { select: { photoVerified: true, identityVerified: true } },
+  // Needed to honour the candidate's own privacy choices when shaping the card.
+  // Discovery is a stranger-facing surface, so CONNECTIONS counts as hidden.
+  privacy: { select: { distanceVisibility: true, showAgeExact: true } },
 } as const;
 
 type CandidateRow = Awaited<
@@ -335,15 +341,23 @@ function shapeProfile(
   const p = c.profile!;
   const musicVisible = p.music?.visibility === "PUBLIC";
   const activityVisible = p.activity?.visibility === "PUBLIC";
+  // A viewer in Discovery is by definition not connected to this person yet, so
+  // anything gated on CONNECTIONS stays hidden here.
+  const distanceVisible = (c.privacy?.distanceVisibility ?? "PUBLIC") === "PUBLIC";
+  const exactAge = c.privacy?.showAgeExact ?? true;
+  const age = ageFromBirthdate(c.birthdate);
 
   return {
     userId: c.id,
     displayName: p.displayName,
-    age: ageFromBirthdate(c.birthdate),
+    age: exactAge ? age : null,
+    ageBand: describeAgeBand(age),
     pronouns: p.pronouns,
     bio: p.bio,
     city: p.city,
-    distanceText: describeDistance(result.distanceKm, p.locationPrecision, units),
+    distanceText: distanceVisible
+      ? describeDistance(result.distanceKm, p.locationPrecision, units)
+      : null,
     photos: p.photos.map((ph) => ({
       id: ph.id,
       url: `/media/${ph.storageKey}`,

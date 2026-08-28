@@ -2,12 +2,15 @@ import "server-only";
 import { db } from "@/lib/db";
 import { storage } from "@/lib/providers/storage";
 import { isBlockedEitherWay } from "@/lib/safety/service";
-import { ageFromBirthdate } from "@/lib/compatibility/geo";
+import { ageFromBirthdate, describeAgeBand } from "@/lib/compatibility/geo";
 
 export interface PublicProfile {
   userId: string;
   name: string;
-  age: number;
+  /** Exact age — null when this member chose not to show it. */
+  age: number | null;
+  /** Always present, e.g. "early 30s". Shown when `age` is withheld. */
+  ageBand: string;
   pronouns: string | null;
   bio: string | null;
   city: string | null;
@@ -58,7 +61,7 @@ export async function getPublicProfile(
     select: {
       birthdate: true,
       trust: { select: { photoVerified: true, identityVerified: true } },
-      privacy: { select: { profileVisibility: true } },
+      privacy: { select: { profileVisibility: true, showAgeExact: true } },
       profile: {
         select: {
           displayName: true,
@@ -108,11 +111,13 @@ export async function getPublicProfile(
 
   const p = u.profile;
   const canSee = (v?: string) => v === "PUBLIC" || (v === "CONNECTIONS" && connected);
+  const age = ageFromBirthdate(u.birthdate);
 
   return {
     userId: targetId,
     name: p.displayName,
-    age: ageFromBirthdate(u.birthdate),
+    age: u.privacy?.showAgeExact === false ? null : age,
+    ageBand: describeAgeBand(age),
     pronouns: p.pronouns,
     bio: p.bio,
     city: p.city,

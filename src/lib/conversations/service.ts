@@ -1,6 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { storage } from "@/lib/providers/storage";
+import { ageFromBirthdate, describeAgeBand } from "@/lib/compatibility/geo";
 
 export interface ConversationSummary {
   conversationId: string;
@@ -27,7 +28,10 @@ export interface ConversationThread {
   other: {
     userId: string;
     name: string;
+    /** Exact age — null when this member chose not to show it. */
     age: number | null;
+    /** Coarse band, shown when `age` is withheld. */
+    ageBand: string | null;
     photoUrl: string | null;
     verified: boolean;
     city: string | null;
@@ -196,6 +200,7 @@ export async function getConversation(
     where: { id: otherId },
     select: {
       birthdate: true,
+      privacy: { select: { showAgeExact: true } },
       profile: {
         select: {
           displayName: true,
@@ -211,9 +216,13 @@ export async function getConversation(
     },
   });
 
-  const age = other?.birthdate
-    ? new Date().getFullYear() - other.birthdate.getFullYear()
-    : null;
+  // Year subtraction alone is off by one until the birthday passes; use the
+  // shared helper. "Show my exact age" is a global choice, so it holds inside a
+  // conversation too — matching is not consent to publish a birth year.
+  const exactAge = other?.privacy?.showAgeExact ?? true;
+  const trueAge = other?.birthdate ? ageFromBirthdate(other.birthdate) : null;
+  const age = exactAge ? trueAge : null;
+  const ageBand = trueAge != null ? describeAgeBand(trueAge) : null;
 
   return {
     conversationId: convo.id,
@@ -222,6 +231,7 @@ export async function getConversation(
       userId: otherId,
       name: other?.profile?.displayName ?? "Someone",
       age,
+      ageBand,
       photoUrl: other?.profile?.photos[0]
         ? storage.publicUrl(other.profile.photos[0].storageKey)
         : null,

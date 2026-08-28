@@ -47,7 +47,9 @@ export default async function ConversationPage(
           <div className="min-w-0">
             <p className="truncate font-medium text-ink">
               {convo.other.name}
-              {convo.other.age ? `, ${convo.other.age}` : ""}
+              {convo.other.age ?? convo.other.ageBand
+                ? `, ${convo.other.age ?? convo.other.ageBand}`
+                : ""}
             </p>
             {convo.other.city && (
               <p className="truncate text-xs text-ink-faint">{convo.other.city}</p>

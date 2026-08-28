@@ -24,6 +24,15 @@ const schema = z.object({
 
   SESSION_TTL_DAYS: z.coerce.number().int().positive().default(30),
 
+  /**
+   * How many trusted reverse proxies sit in front of the app. This decides which
+   * `X-Forwarded-For` entry is believed, and therefore whether the per-IP rate
+   * limits can be bypassed by forging the header — see lib/security/client-ip.
+   * 1 for Render / Fly / Heroku; 2 when a CDN fronts the platform; 0 when the
+   * app is exposed directly (no forwarding header is then trusted at all).
+   */
+  TRUSTED_PROXY_HOPS: z.coerce.number().int().min(0).max(4).default(1),
+
   REDIS_URL: z.string().optional(),
 
   // ── Observability ─────────────────────────────────────────────────────────

@@ -48,3 +48,19 @@ export function ageFromBirthdate(birthdate: Date, now = new Date()): number {
   if (m < 0 || (m === 0 && now.getDate() < birthdate.getDate())) age--;
   return age;
 }
+
+/**
+ * Coarse age phrasing for members who turned off "show my exact age".
+ * Matching still uses the real birthdate — this only changes what is *shown*,
+ * the same way `describeDistance` blurs a precise coordinate.
+ *
+ * Deliberately a third of a decade, not a two-year window: a band narrow enough
+ * to be re-derived is not a privacy control.
+ */
+export function describeAgeBand(age: number): string {
+  if (age < 20) return "late teens";
+  const decade = Math.floor(age / 10) * 10;
+  const within = age % 10;
+  const part = within <= 3 ? "early" : within <= 6 ? "mid" : "late";
+  return `${part} ${decade}s`;
+}

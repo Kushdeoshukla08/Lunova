@@ -27,7 +27,7 @@ export default async function PublicProfilePage(props: PageProps<"/u/[userId]">)
       <div className="flex items-start justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-display tracking-tight">
-            {p.name}, {p.age}
+            {p.name}, {p.age ?? p.ageBand}
             {p.verified.photo && <VerifiedBadge label="" />}
           </h1>
           <p className="mt-0.5 text-sm text-ink-soft">

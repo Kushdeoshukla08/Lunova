@@ -3,6 +3,7 @@ import { cookies, headers } from "next/headers";
 import { createHash } from "node:crypto";
 import { db } from "@/lib/db";
 import { env, isProdLike } from "@/lib/env";
+import { UNKNOWN_IP, clientIpFrom } from "@/lib/security/client-ip";
 import { generateToken, hashToken } from "./tokens";
 
 const COOKIE = "lunova_session";
@@ -24,10 +25,11 @@ function cookieOptions(expires: Date) {
 
 async function requestContext() {
   const h = await headers();
-  const ip =
-    h.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    h.get("x-real-ip") ||
-    null;
+  // Same resolution rule as the rate limiter: a client-supplied hop is not the
+  // client's address, and this value is shown back to the user as "where you
+  // signed in from" on the security page.
+  const resolved = clientIpFrom(h, { trustedProxyHops: env.TRUSTED_PROXY_HOPS });
+  const ip = resolved === UNKNOWN_IP ? null : resolved;
   const userAgent = h.get("user-agent") ?? null;
   return { ip, userAgent };
 }

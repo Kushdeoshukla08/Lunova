@@ -47,13 +47,19 @@ resets on restart).
 **Fix:** after `MAX_OTP_ATTEMPTS` (5) wrong guesses the code is consumed and a
 fresh one must be requested. Rate limits remain as a first line.
 
-### S6 — `x-forwarded-for` trusted for rate limiting — **Mitigated** · Low
+### S6 — `x-forwarded-for` trusted for rate limiting — **Fixed** · Medium
 The leftmost `x-forwarded-for` value is client-controlled; an attacker rotating
-it gets a fresh rate-limit bucket. Signup was IP-only.
-**Fix / mitigation:** IP extraction now prefers `x-real-ip` (set by a trusted
-proxy); signup gained a per-email limit in addition to per-IP. **Production
-requirement:** the edge/proxy must overwrite `x-real-ip` / `x-forwarded-for`
-with the true client IP.
+it gets a fresh rate-limit bucket. Signup was IP-only. The earlier mitigation
+preferred `x-real-ip`, which is *also* just a request header — it is only
+trustworthy if the edge overwrites it, and nothing verified that it did.
+**Fix:** `lib/security/client-ip.ts` counts in from the **right** of
+`x-forwarded-for` by `TRUSTED_PROXY_HOPS` (default 1). A proxy appends the peer
+it saw, so the Nth-from-the-right entry is the first value the client could not
+forge; everything to its left is ignored, as is `x-real-ip`. Unresolvable
+requests share one `unknown` bucket rather than each getting a fresh allowance.
+**Deployment requirement:** `TRUSTED_PROXY_HOPS` must equal the number of
+proxies actually in front of the app — 1 on Render, 2 behind a CDN, 0 if
+exposed directly.
 
 ### S7 — Upload size limit exceeded the action body limit — **Fixed** · Low
 `MAX_IMAGE_BYTES` (8 MB) was larger than `serverActions.bodySizeLimit` (4 MB),
@@ -66,13 +72,18 @@ stayed in the other person's thread.
 **Fix:** deletion now tombstones every message the user sent (`body: ""`,
 `deletedAt` set) and also clears their `VerificationToken` rows.
 
-### S9 — `/media/[...key]` has no per-request authorization — **Mitigated** · Low
-Photo objects are served to anyone who has the key. Keys are `photos/<a>/<b>/<uuid>.<ext>`
-with a v4 UUID, so enumeration is infeasible, and verification selfies are
-never served (prefix allow-list). But a key that leaked while two users were
-matched stays loadable after a block.
-**Production requirement:** the S3 `MediaStorageProvider` must issue
-short-TTL signed read URLs; the local route is dev-only.
+### S9 — `/media/[...key]` has no per-request authorization — **Fixed** · Medium
+Photo objects were served to anyone holding the key, in any moderation state,
+without a session. Random UUIDs made enumeration infeasible, but a key that
+leaked while two people were matched stayed loadable forever — including after
+a block, and including photos still in the moderation queue.
+**Fix:** the route now authorizes every request against the `Photo` row
+(`storageKey` is unique, so it is a point read): signed-in members only, a
+photo in moderation is visible only to its owner, blocks apply in both
+directions, and photos of banned/deleted accounts are hidden. Denials are 404
+so the route is not an existence oracle. With `STORAGE_PROVIDER=s3` the bucket
+stays private and the route redirects to a short-TTL presigned URL after the
+check, rather than the bucket being publicly readable.
 
 ### S10 — Blocked user could re-open a frozen conversation — **Fixed** · Low
 Blocking closes the match, which removes the thread from both connection lists
@@ -81,9 +92,59 @@ and re-read history.
 **Fix:** `getConversation` returns `null` to the blocked party when the match
 was closed with `closeReason: "BLOCKED"`.
 
-### S11 — No cap on concurrent SSE connections per user — **Deferred**
-`/api/realtime` accepts unbounded connections per authenticated user.
-Handled in the abuse-testing phase (per-user connection cap + idle timeout).
+### S11 — No cap on concurrent SSE connections per user — **Fixed** · Low
+`/api/realtime` accepted unbounded connections per authenticated user.
+**Fix:** `MAX_STREAMS_PER_USER` (8); an extra stream gets 429 + `Retry-After`
+and the client reconnects, so the cap degrades gracefully.
+
+## Second pass — production hardening
+
+### S12 — Upload MIME type was taken from the client — **Fixed** · High
+`file.type` is the multipart header: a browser sets it honestly, `curl` sets it
+to anything. Uploads were accepted, stored under an extension derived from that
+claim, and later served with a `Content-Type` derived from the same claim. HTML,
+SVG, a shell script or a GIF/PNG polyglot could all be stored as `.png`.
+**Fix:** `lib/media/image.ts` identifies the container from its own bytes
+(JPEG/PNG/WebP/AVIF) and requires the declaration to match; everything else is
+rejected. The media route adds `nosniff`, `Content-Disposition: inline` and a
+`default-src 'none'; sandbox` CSP so a stored object can never be interpreted as
+an active document.
+
+### S13 — No image dimension limits — **Fixed** · Medium
+Only a byte cap existed, so a ~60-byte PNG header declaring 30000×30000 passed
+validation and would be expanded by any downstream decode.
+**Fix:** min/max per-axis and a total pixel budget, all read from the container
+header — the bomb is rejected on its declared geometry and never decoded. Real
+`width`/`height` are now persisted (the columns existed but were never written).
+
+### S14 — Privacy controls collected but never enforced — **Fixed** · Medium
+`showAgeExact` and `distanceVisibility` were shown in Settings, validated, and
+written to the database — then ignored on every read path. Discovery, the public
+profile and the conversation header all rendered the exact age, and Discovery
+always rendered a distance.
+**Fix:** both are applied where the payload is shaped. Withheld ages fall back
+to a coarse band (`describeAgeBand`, roughly a third of a decade); matching and
+ranking still use the true birthdate, so only the *display* changes.
+See `src/lib/discovery/privacy-projection.integration.test.ts`.
+
+### S15 — `/api/metrics` compared its bearer token with `!==` — **Fixed** · Low
+A byte-by-byte comparison returns as soon as it differs, leaking the token
+prefix through response timing.
+**Fix:** both sides are SHA-256'd and compared with `timingSafeEqual`.
+
+### S16 — Conversation header computed age by year subtraction — **Fixed** · Low
+`getFullYear() - birthYear` is one too high until the birthday passes, so the
+thread header could disagree with the profile.
+**Fix:** uses the shared `ageFromBirthdate`.
+
+## Open — needs a product decision, not a patch
+
+### S17 — `showActiveStatus` has no member-facing surface
+The control is offered in onboarding and Settings and is written to the
+database, but last-active time is shown only in the admin panel, so the switch
+changes nothing a member can see. It is not a leak — it is a promise the
+product does not currently make. Either surface active status (and honour the
+flag) or remove the control; leaving it is mildly misleading.
 
 ## What held up
 
@@ -101,11 +162,27 @@ Handled in the abuse-testing phase (per-user connection cap + idle timeout).
   paused / incognito / non-onboarded accounts.
 - `getPublicProfile` never exposes email, phone, exact location, or
   `CONNECTIONS`-scoped music/activity to a non-connection.
-- Storage `safeKey` rejects `..`, absolute paths and backslash-prefixed keys.
+- Storage `isSafeKey` validates segment by segment: no `.`/`..`, no absolute,
+  UNC or drive-letter paths, no control bytes, no URL-significant characters.
 - Admin actions write an `AuditLog` row (with IP) for every privileged action.
+- Login and signup are enumeration-safe: one message for both failure modes, and
+  the bcrypt cost is always spent so the response time does not branch on
+  whether the address exists.
+- Account deletion revokes sessions, tombstones sent message bodies, deletes
+  photos from the object store, and anonymises the account shell.
 
 ## Regression coverage
 
-`src/lib/security/adversarial.integration.test.ts` (10 tests) exercises S1, S3,
-S4, S5, S10 plus cross-user `getConversation` / `closeMatch`. Run with
-`RUN_DB_TESTS=1`.
+Run everything below with `RUN_DB_TESTS=1`.
+
+| Suite | Covers |
+|---|---|
+| `lib/security/adversarial.integration.test.ts` | S1, S3, S4, S5, S10, cross-user `getConversation` / `closeMatch`, moderator privilege limits |
+| `lib/security/abuse.integration.test.ts` | block bypass, unmatch-then-block, one-sided flood, profile text screening |
+| `lib/security/client-ip.test.ts` | S6 — forged `X-Forwarded-For` prefixes land in one bucket |
+| `lib/media/image.test.ts` | S12, S13 — polyglot, SVG, HTML, decompression bomb, marker soup |
+| `lib/providers/storage.test.ts` | key traversal, absolute/UNC paths, control bytes |
+| `app/media/route.integration.test.ts` | S9 — anonymous, blocked, banned, in-moderation, traversal |
+| `lib/discovery/privacy-projection.integration.test.ts` | S14 — age/distance actually withheld |
+| `app/api/metrics/route.test.ts` | S15 — token guard |
+| `app/api/health/route.test.ts` | no secret can appear in the public probe |

@@ -7,6 +7,7 @@ function profile(over: Partial<DiscoveryProfile> = {}): DiscoveryProfile {
     userId: "u",
     displayName: "Arjun",
     age: 31,
+    ageBand: "early 30s",
     pronouns: null,
     bio: null,
     city: "Lisbon",
