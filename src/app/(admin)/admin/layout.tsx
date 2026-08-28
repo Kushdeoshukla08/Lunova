@@ -17,6 +17,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/">) {
               <Link href="/admin" className="hover:text-ink">Dashboard</Link>
               <Link href="/admin/reports" className="hover:text-ink">Reports</Link>
               <Link href="/admin/metrics" className="hover:text-ink">Product health</Link>
+              <Link href="/admin/why" className="hover:text-ink">Why this person</Link>
             </nav>
           </div>
           <div className="flex items-center gap-3 text-xs text-ink-faint">

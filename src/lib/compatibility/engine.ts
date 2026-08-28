@@ -182,44 +182,139 @@ export function mutuallyEligible(a: CompatInput, b: CompatInput): boolean {
 
 // ─── Engine ──────────────────────────────────────────────────────────────────
 
+/**
+ * Run every signal once. The single source of truth for both the ranking score
+ * and the internal explanation — they can never disagree because they're
+ * computed from the same object.
+ */
+function runSignals(viewer: CompatInput, candidate: CompatInput) {
+  return {
+    intent: intentSignal(viewer, candidate),
+    interests: interestsSignal(viewer, candidate),
+    music: musicSignal(viewer, candidate),
+    activity: activitySignal(viewer, candidate),
+    distance: distanceSignal(viewer, candidate),
+    personality: personalitySignal(viewer, candidate),
+  };
+}
+
+type SignalBag = ReturnType<typeof runSignals>;
+
+function blendScore(s: SignalBag): number {
+  return clamp(
+    s.intent.score * WEIGHTS.intent +
+      s.interests.score * WEIGHTS.interests +
+      s.music.score * WEIGHTS.music +
+      s.activity.score * WEIGHTS.activity +
+      s.distance.score * WEIGHTS.distance +
+      s.personality.score * WEIGHTS.personality,
+  );
+}
+
+function topHighlights(s: SignalBag): Highlight[] {
+  return [
+    ...s.music.highlights,
+    ...s.activity.highlights,
+    ...s.interests.highlights,
+    ...s.intent.highlights,
+    ...s.personality.highlights,
+    ...s.distance.highlights,
+  ]
+    .sort((x, y) => y.weight - x.weight)
+    .slice(0, 4);
+}
+
 export function computeCompatibility(
   viewer: CompatInput,
   candidate: CompatInput,
 ): CompatibilityResult & { distanceKm: number | null } {
-  const intent = intentSignal(viewer, candidate);
-  const interests = interestsSignal(viewer, candidate);
-  const music = musicSignal(viewer, candidate);
-  const activity = activitySignal(viewer, candidate);
-  const distance = distanceSignal(viewer, candidate);
-  const personality = personalitySignal(viewer, candidate);
-
-  const score = clamp(
-    intent.score * WEIGHTS.intent +
-      interests.score * WEIGHTS.interests +
-      music.score * WEIGHTS.music +
-      activity.score * WEIGHTS.activity +
-      distance.score * WEIGHTS.distance +
-      personality.score * WEIGHTS.personality,
-  );
-
-  const highlights = [
-    ...music.highlights,
-    ...activity.highlights,
-    ...interests.highlights,
-    ...intent.highlights,
-    ...personality.highlights,
-    ...distance.highlights,
-  ]
-    .sort((x, y) => y.weight - x.weight)
-    .slice(0, 4);
+  const s = runSignals(viewer, candidate);
+  const score = blendScore(s);
+  const highlights = topHighlights(s);
 
   return {
     score,
-    label: pickLabel({ score, music, activity, interests, highlights }),
+    label: pickLabel({ score, music: s.music, activity: s.activity, interests: s.interests, highlights }),
     highlights,
     mutuallyEligible: mutuallyEligible(viewer, candidate),
-    distanceKm: distance.km,
+    distanceKm: s.distance.km,
   };
+}
+
+/** One row of the internal explanation. */
+export interface SignalExplanation {
+  signal: keyof typeof WEIGHTS;
+  /** Raw 0–1 signal output. */
+  raw: number;
+  weight: number;
+  /** raw × weight — how many points this signal put into the blended score. */
+  contribution: number;
+  /** Present only when the signal produced a user-facing highlight. */
+  highlights: string[];
+}
+
+export interface CompatibilityExplanation {
+  viewerId: string;
+  candidateId: string;
+  score: number;
+  label: ConnectionLabel;
+  /** Sorted by contribution, descending — the "why this person" ordering. */
+  signals: SignalExplanation[];
+  gates: {
+    viewerAcceptsCandidate: boolean;
+    candidateAcceptsViewer: boolean;
+    mutuallyEligible: boolean;
+  };
+  distanceKm: number | null;
+  shownHighlights: string[];
+}
+
+/**
+ * The internal answer to "why did this person appear / rank here?". Never sent
+ * to a member — this is for operators and debugging. It is derived from the
+ * exact same signal run as the score, so it can't drift.
+ */
+export function explainCompatibility(
+  viewer: CompatInput,
+  candidate: CompatInput,
+): CompatibilityExplanation {
+  const s = runSignals(viewer, candidate);
+  const score = blendScore(s);
+  const highlights = topHighlights(s);
+
+  const rows: SignalExplanation[] = (
+    Object.keys(WEIGHTS) as (keyof typeof WEIGHTS)[]
+  ).map((signal) => {
+    const result = s[signal];
+    const weight = WEIGHTS[signal];
+    return {
+      signal,
+      raw: round(result.score),
+      weight,
+      contribution: round(result.score * weight),
+      highlights: result.highlights.map((h) => h.text),
+    };
+  });
+  rows.sort((a, b) => b.contribution - a.contribution);
+
+  return {
+    viewerId: viewer.userId,
+    candidateId: candidate.userId,
+    score: round(score),
+    label: pickLabel({ score, music: s.music, activity: s.activity, interests: s.interests, highlights }),
+    signals: rows,
+    gates: {
+      viewerAcceptsCandidate: meetsPreferences(viewer, candidate),
+      candidateAcceptsViewer: meetsPreferences(candidate, viewer),
+      mutuallyEligible: mutuallyEligible(viewer, candidate),
+    },
+    distanceKm: s.distance.km,
+    shownHighlights: highlights.map((h) => h.text),
+  };
+}
+
+function round(n: number): number {
+  return Math.round(n * 1000) / 1000;
 }
 
 function pickLabel(x: {
