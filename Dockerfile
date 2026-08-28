@@ -18,7 +18,11 @@ RUN npm run db:generate \
 # ─── runtime ─────────────────────────────────────────────────────────────────
 FROM node:22-slim AS runner
 WORKDIR /app
-ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000
+# HOSTNAME=0.0.0.0 is required: the Next standalone server binds to
+# `process.env.HOSTNAME || '0.0.0.0'`, and container platforms (Render, k8s) set
+# HOSTNAME to the pod name — Next would then listen on an address the router
+# can't reach, and every request 502s. PORT is overridden by the platform.
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 RUN groupadd -r lunova && useradd -r -g lunova lunova
 
 # standalone server bundle + static assets + Prisma client + CLI (for migrate deploy)
