@@ -2,8 +2,11 @@ import "server-only";
 import { db } from "@/lib/db";
 import {
   computeCompatibility,
+  type WeightOverride,
 } from "@/lib/compatibility/engine";
 import type { CompatInput, Highlight } from "@/lib/compatibility/types";
+import { exposeVariant } from "@/lib/experiments/assign";
+import type { WeightConfig } from "@/lib/experiments/registry";
 import { ageFromBirthdate, describeDistance } from "@/lib/compatibility/geo";
 
 export interface DiscoveryPrompt {
@@ -51,6 +54,14 @@ export async function getDiscoveryFeed(
 ): Promise<DiscoveryProfile[]> {
   const viewer = await loadViewer(viewerUserId);
   if (!viewer) return [];
+
+  // Ranking-weight experiment (disabled by default; see docs/EXPERIMENTS.md).
+  const { config: weightExp } = exposeVariant<WeightConfig>(
+    "discovery_music_weight_v1",
+    viewerUserId,
+  );
+  const weights: WeightOverride | undefined =
+    Object.keys(weightExp.weights).length > 0 ? weightExp.weights : undefined;
 
   const [blocks, acted, likedMe] = await Promise.all([
     db.block.findMany({
@@ -113,7 +124,7 @@ export async function getDiscoveryFeed(
   const scored = candidates
     .map((c) => {
       const input = toCompatInput(c);
-      const result = computeCompatibility(viewer.compat, input);
+      const result = computeCompatibility(viewer.compat, input, weights);
       return { c, input, result };
     })
     .filter(({ result }) => result.mutuallyEligible)

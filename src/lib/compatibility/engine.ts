@@ -202,14 +202,18 @@ function runSignals(viewer: CompatInput, candidate: CompatInput) {
 
 type SignalBag = ReturnType<typeof runSignals>;
 
-function blendScore(s: SignalBag): number {
+export type WeightKey = keyof typeof WEIGHTS;
+export type WeightOverride = Partial<Record<WeightKey, number>>;
+
+function blendScore(s: SignalBag, override?: WeightOverride): number {
+  const w = override ? { ...WEIGHTS, ...override } : WEIGHTS;
   return clamp(
-    s.intent.score * WEIGHTS.intent +
-      s.interests.score * WEIGHTS.interests +
-      s.music.score * WEIGHTS.music +
-      s.activity.score * WEIGHTS.activity +
-      s.distance.score * WEIGHTS.distance +
-      s.personality.score * WEIGHTS.personality,
+    s.intent.score * w.intent +
+      s.interests.score * w.interests +
+      s.music.score * w.music +
+      s.activity.score * w.activity +
+      s.distance.score * w.distance +
+      s.personality.score * w.personality,
   );
 }
 
@@ -229,9 +233,11 @@ function topHighlights(s: SignalBag): Highlight[] {
 export function computeCompatibility(
   viewer: CompatInput,
   candidate: CompatInput,
+  /** Ranking-weight override, e.g. from a discovery experiment. Never a user input. */
+  weights?: WeightOverride,
 ): CompatibilityResult & { distanceKm: number | null } {
   const s = runSignals(viewer, candidate);
-  const score = blendScore(s);
+  const score = blendScore(s, weights);
   const highlights = topHighlights(s);
 
   return {
