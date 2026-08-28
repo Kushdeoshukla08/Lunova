@@ -6,6 +6,7 @@ import {
   resolveBuildCommit,
   sanitizeDatabaseUrl,
 } from "@/lib/observability/health-info";
+import { storageStatus } from "@/lib/providers/storage";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,10 @@ export async function GET() {
     appEnv: env.APP_ENV,
     nodeEnv: env.NODE_ENV,
     database: sanitizeDatabaseUrl(env.DATABASE_URL), // { host, name } | null
+    // Which media backend is live and, if it is misconfigured, the NAMES of the
+    // variables that are missing — never their values. Without this a bad deploy
+    // looks healthy right up until someone opens a profile and sees broken images.
+    storage: storageStatus(),
   };
 
   try {

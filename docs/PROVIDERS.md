@@ -8,7 +8,7 @@ has a **dev implementation that needs no credentials**, selected by an env var.
 |---|---|---|---|
 | Email | `EMAIL_PROVIDER` | `console` (prints to stdout) | **`resend`** (implemented) · `ses` (stub) |
 | SMS | `SMS_PROVIDER` | `console` | **`twilio`** (implemented) |
-| Object storage | `STORAGE_PROVIDER` | `local` (disk, served by `/media`) | `s3` (interface ready — see below) |
+| Object storage | `STORAGE_PROVIDER` | `local` (disk, served by `/media`) | **`s3`** (implemented — AWS S3, Cloudflare R2, B2, MinIO) |
 | Content moderation | `MODERATION_PROVIDER` | `heuristic` | vendor stub (`hive` / `openai` / `rekognition`) |
 | Identity verification | `IDV_PROVIDER` | auto-approve | vendor stub (`persona` / `veriff` / `stripe-identity`) |
 | Music | `MUSIC_PROVIDER` | `internal` (typed by hand) | `spotify` OAuth (interface ready) |
@@ -46,17 +46,35 @@ with a warning if the key is missing.
 `POST .../Messages.json` with Basic auth — no SDK. Needs `TWILIO_ACCOUNT_SID`,
 `TWILIO_AUTH_TOKEN`, `TWILIO_FROM`.
 
+### Object storage — any S3-compatible bucket (`STORAGE_PROVIDER=s3`)
+
+`S3StorageProvider` in `src/lib/providers/storage.ts`, on `@aws-sdk/client-s3` +
+`@aws-sdk/s3-request-presigner`. **Nothing in it is vendor-specific** — R2, S3,
+B2 and MinIO differ only by `S3_ENDPOINT` and `S3_REGION`.
+
+| Variable | Cloudflare R2 | AWS S3 |
+|---|---|---|
+| `S3_BUCKET` | bucket name | bucket name |
+| `S3_ENDPOINT` | `https://<account-id>.r2.cloudflarestorage.com` | omit |
+| `S3_REGION` | `auto` (the default) | e.g. `eu-west-1` |
+| `S3_ACCESS_KEY_ID` | R2 API token — Access Key ID | IAM access key |
+| `S3_SECRET_ACCESS_KEY` | R2 API token — Secret Access Key | IAM secret |
+
+`GET /api/health` reports `storage: { provider, ready, missing[] }`, naming any
+variable that is absent — never a value. A misconfigured deploy is visible from
+the probe instead of showing up as broken images.
+
+**The bucket must stay private.** Do not attach a public r2.dev domain or a
+public-read policy: every URL in the product points at `/media/[...key]`, which
+authenticates the viewer, checks blocks and moderation state, and only then
+redirects to a short-lived presigned URL. A public bucket would route around all
+of that. R2's free tier (10 GB, no egress fees) covers staging comfortably.
+
 ## Adding the remaining adapters
 
 Each is a class implementing the existing interface, added to the module's
 `build()` switch — no feature code changes.
 
-- **Storage → S3/R2:** implement `StorageProvider` in `src/lib/providers/storage.ts`.
-  `put` uploads to the bucket; `publicUrl` returns a **short-TTL signed GET URL**
-  (see SECURITY-AUDIT S9 — the media route must not be an unauthenticated
-  bearer). Keep `content-type` validation and the 8 MB cap. Use
-  `@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner` (works for AWS S3 and,
-  with `S3_ENDPOINT`, Cloudflare R2 / MinIO).
 - **Music → Spotify:** OAuth (authorization code + refresh). Store only what
   Lunova needs — top artists, a couple of tracks, genres — never a full library
   or a live player. `MUSIC_PROVIDER=spotify` + `SPOTIFY_CLIENT_ID/SECRET`.

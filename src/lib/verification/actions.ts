@@ -6,9 +6,10 @@ import { requireOnboardedUser } from "@/lib/auth/dal";
 import { rateLimiter, RATE_RULES } from "@/lib/rate-limit";
 import { db } from "@/lib/db";
 import {
-  ACCEPTED_IMAGE_TYPES,
   MAX_IMAGE_BYTES,
-} from "@/lib/providers/storage";
+  checkImageUpload,
+  imageRejectionMessage,
+} from "@/lib/media/image";
 import {
   confirmPhone,
   startPhoneVerification,
@@ -76,18 +77,20 @@ export async function submitPhotoVerificationAction(
   if (!(file instanceof File) || file.size === 0) {
     return { ok: false, error: "Take or choose a selfie to continue." };
   }
-  if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
-    return { ok: false, error: "Use a JPEG, PNG or WebP image." };
-  }
   if (file.size > MAX_IMAGE_BYTES) {
-    return { ok: false, error: "That image is too large." };
+    return { ok: false, error: imageRejectionMessage("too-large") };
   }
 
   const limit = await rateLimiter.check(`photoverify:${user.id}`, RATE_RULES.resendCode);
   if (!limit.ok) return { ok: false, error: "Too many submissions — try again later." };
 
   const bytes = Buffer.from(await file.arrayBuffer());
-  const res = await submitPhotoVerification(user.id, bytes, file.type);
+  // Same byte-level identification as profile photos — a selfie upload is not a
+  // second, weaker door into the object store.
+  const check = checkImageUpload(bytes, file.type);
+  if (!check.ok) return { ok: false, error: imageRejectionMessage(check.reason) };
+
+  const res = await submitPhotoVerification(user.id, bytes, check.info.mime);
   revalidatePath("/verify/photo");
   revalidatePath("/settings");
   if (res.status === "approved") return { ok: true, note: "You're verified." };

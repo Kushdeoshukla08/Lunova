@@ -5,11 +5,12 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth/dal";
 import { ensureProfile, recomputeCompleteness } from "@/lib/profile/service";
+import { storage } from "@/lib/providers/storage";
 import {
-  ACCEPTED_IMAGE_TYPES,
   MAX_IMAGE_BYTES,
-  storage,
-} from "@/lib/providers/storage";
+  checkImageUpload,
+  imageRejectionMessage,
+} from "@/lib/media/image";
 import { geocode } from "@/lib/providers/geocode";
 import { moderateImage } from "@/lib/moderation/provider";
 import { screenProfileText } from "@/lib/profile/moderation";
@@ -68,11 +69,10 @@ export async function uploadPhotoAction(
   if (!(file instanceof File) || file.size === 0) {
     return { error: "Choose an image to upload." };
   }
-  if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
-    return { error: "Use a JPEG, PNG, WebP or AVIF image." };
-  }
+  // Check the declared size before buffering so an oversized body is refused
+  // without ever being held in memory.
   if (file.size > MAX_IMAGE_BYTES) {
-    return { error: "That image is over 8 MB — try a smaller one." };
+    return { error: imageRejectionMessage("too-large") };
   }
   const count = await db.photo.count({ where: { profileId: profile.id } });
   if (count >= MAX_PHOTOS) {
@@ -80,16 +80,27 @@ export async function uploadPhotoAction(
   }
 
   const bytes = Buffer.from(await file.arrayBuffer());
-  const verdict = await moderateImage(bytes, file.type);
+  // The browser-supplied content type is a claim, not evidence: identify the
+  // image from its own bytes and require the two to agree. This is what stops
+  // an HTML or SVG payload being stored under an image extension.
+  const check = checkImageUpload(bytes, file.type);
+  if (!check.ok) {
+    return { error: imageRejectionMessage(check.reason) };
+  }
+  const { mime, width, height } = check.info;
+
+  const verdict = await moderateImage(bytes, mime);
   if (verdict.action === "reject") {
     return { error: "That image didn't pass our content check. Try another." };
   }
 
-  const { key } = await storage.put("photos", bytes, file.type);
+  const { key } = await storage.put("photos", bytes, mime);
   await db.photo.create({
     data: {
       profileId: profile.id,
       storageKey: key,
+      width,
+      height,
       position: count,
       isPrimary: count === 0,
       moderationStatus: verdict.action === "allow" ? "APPROVED" : "PENDING",

@@ -7,9 +7,13 @@
 #
 # NOT included (all $0 choices, see docs/STAGING-RUNBOOK.md):
 #   • Database  → an external Neon free-tier Postgres. Paste its URL as DATABASE_URL.
-#   • Storage   → STORAGE_PROVIDER=local on the container's ephemeral disk. Uploads
-#                 vanish on redeploy; the staging seed regenerates persona photos,
-#                 and testers' uploads are disposable.
+#   • Storage   → STORAGE_PROVIDER=s3 against a Cloudflare R2 bucket (free tier:
+#                 10 GB, no egress fees). Set the four S3_* secrets below. Leave
+#                 STORAGE_PROVIDER=local and uploads live on the container's
+#                 ephemeral disk instead — they vanish on every redeploy, which
+#                 is why seeded persona photos 404 after a deploy.
+#                 Keep the bucket PRIVATE: media is served through /media/[...key],
+#                 which authorizes the viewer before redirecting to a signed URL.
 #   • Email/SMS → console providers. During a moderated session the facilitator
 #                 reads the 6-digit code from the Render logs. Phone verification
 #                 is optional and skipped.
@@ -43,7 +47,9 @@ services:
       - key: RUN_MIGRATIONS_ON_START
         value: "1"
       - key: STORAGE_PROVIDER
-        value: local
+        value: s3
+      - key: S3_REGION
+        value: auto            # correct for Cloudflare R2; use the real region for AWS
       - key: EMAIL_PROVIDER
         value: console
       - key: SMS_PROVIDER
@@ -62,4 +68,14 @@ services:
       - key: DATABASE_URL
         sync: false
       - key: METRICS_TOKEN
+        sync: false
+      # Object storage (Cloudflare R2 or any S3-compatible bucket). All four are
+      # required when STORAGE_PROVIDER=s3; /api/health names any that are missing.
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ENDPOINT
+        sync: false            # https://<account-id>.r2.cloudflarestorage.com
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
         sync: false

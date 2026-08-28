@@ -369,7 +369,9 @@ model Photo {
   id               String                @id @default(cuid())
   profileId        String
   profile          Profile               @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  storageKey       String // key in the object store; served via signed/CDN URL
+  // Key in the object store. Unique because /media/[...key] resolves a request
+  // back to this row to authorize it — that lookup must be an exact point read.
+  storageKey       String                @unique
   blurhash         String?
   width            Int?
   height           Int?
