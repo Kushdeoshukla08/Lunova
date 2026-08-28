@@ -214,7 +214,7 @@ async function loadViewer(userId: string) {
           relationshipIntent: true,
           latitude: true,
           longitude: true,
-          interests: { select: { interest: { select: { slug: true } } } },
+          interests: { select: { interest: { select: { slug: true, label: true } } } },
           prompts: { select: { question: { select: { slug: true } } } },
           music: {
             select: {
@@ -253,6 +253,9 @@ async function loadViewer(userId: string) {
     latitude: u.profile.latitude,
     longitude: u.profile.longitude,
     interests: u.profile.interests.map((i) => i.interest.slug),
+    interestLabels: Object.fromEntries(
+      u.profile.interests.map((i) => [i.interest.slug, i.interest.label]),
+    ),
     music: u.profile.music
       ? {
           artists: u.profile.music.artists.map((a) => a.artist.name.toLowerCase()),
@@ -287,6 +290,9 @@ function toCompatInput(c: CandidateRow): CompatInput {
     latitude: p.latitude,
     longitude: p.longitude,
     interests: p.interests.map((i) => i.interest.slug),
+    interestLabels: Object.fromEntries(
+      p.interests.map((i) => [i.interest.slug, i.interest.label]),
+    ),
     music: p.music
       ? {
           artists: p.music.artists.map((a) => a.artist.name.toLowerCase()),

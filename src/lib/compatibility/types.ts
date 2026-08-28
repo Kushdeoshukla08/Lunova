@@ -32,7 +32,9 @@ export interface CompatInput {
   relationshipIntent: string | null;
   latitude: number | null;
   longitude: number | null;
-  interests: string[]; // slugs
+  interests: string[]; // slugs — the matching key
+  /** slug → human label, for highlight text only. Optional; slugs are humanised if absent. */
+  interestLabels?: Record<string, string>;
   music: { artists: string[]; genres: string[] } | null; // normalised lower-case
   activity: { types: string[]; lifestyle: string | null } | null;
   answeredPrompts: string[]; // question slugs

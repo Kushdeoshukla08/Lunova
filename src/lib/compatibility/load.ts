@@ -19,7 +19,7 @@ export async function loadCompatInput(userId: string): Promise<CompatInput | nul
           relationshipIntent: true,
           latitude: true,
           longitude: true,
-          interests: { select: { interest: { select: { slug: true } } } },
+          interests: { select: { interest: { select: { slug: true, label: true } } } },
           prompts: { select: { question: { select: { slug: true } } } },
           music: {
             select: {
@@ -56,6 +56,9 @@ export async function loadCompatInput(userId: string): Promise<CompatInput | nul
     latitude: p.latitude,
     longitude: p.longitude,
     interests: p.interests.map((i) => i.interest.slug),
+    interestLabels: Object.fromEntries(
+      p.interests.map((i) => [i.interest.slug, i.interest.label]),
+    ),
     music: p.music
       ? {
           artists: p.music.artists.map((a) => a.artist.name.toLowerCase()),

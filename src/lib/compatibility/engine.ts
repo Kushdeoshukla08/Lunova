@@ -57,6 +57,8 @@ export function interestsSignal(a: CompatInput, b: CompatInput): SignalResult {
   const shared = intersect(a.interests, b.interests);
   const denom = Math.min(8, Math.max(a.interests.length, b.interests.length, 1));
   const score = clamp(shared.length / denom);
+  const label = (slug: string) =>
+    (a.interestLabels?.[slug] ?? b.interestLabels?.[slug] ?? humanizeSlug(slug)).toLowerCase();
   const highlights: Highlight[] =
     shared.length >= 2
       ? [
@@ -65,7 +67,7 @@ export function interestsSignal(a: CompatInput, b: CompatInput): SignalResult {
             text:
               shared.length >= 4
                 ? `${shared.length} shared interests`
-                : `You both like ${prettyList(shared.slice(0, 3))}`,
+                : `You both like ${prettyList(shared.slice(0, 3).map(label))}`,
             tone: "glow",
             weight: 4 + Math.min(shared.length, 4),
           },
@@ -348,6 +350,10 @@ function prettyList(xs: string[]): string {
 }
 function titleCase(s: string): string {
   return s.replace(/\b\w/g, (c) => c.toUpperCase());
+}
+/** Fallback for an interest slug with no label: "creative--film-photography" → "film photography". */
+function humanizeSlug(slug: string): string {
+  return (slug.split("--").at(-1) ?? slug).replace(/-/g, " ").trim();
 }
 function activityVerb(slug: string): string {
   const map: Record<string, string> = {
