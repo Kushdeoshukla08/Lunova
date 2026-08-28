@@ -46,8 +46,19 @@ services:
         value: https://lunova-staging.onrender.com   # edit if Render assigns another host
       - key: RUN_MIGRATIONS_ON_START
         value: "1"
+      # Uploads live on the container's ephemeral disk until an R2 bucket
+      # exists — they vanish on every redeploy, which is why seeded persona
+      # photos 404 after a deploy. To switch (see docs/PROVIDERS.md):
+      #   1. Create a Cloudflare R2 bucket and an API token (free tier: 10 GB,
+      #      no egress fees). Keep the bucket PRIVATE — /media authorizes each
+      #      request and then redirects to a signed URL.
+      #   2. Set the four S3_* secrets below in the Render dashboard.
+      #   3. Flip this to `s3`.
+      # /api/health reports storage.ready and names anything still missing, so
+      # a half-done switch is visible from the probe rather than as broken
+      # images.
       - key: STORAGE_PROVIDER
-        value: s3
+        value: local
       - key: S3_REGION
         value: auto            # correct for Cloudflare R2; use the real region for AWS
       - key: EMAIL_PROVIDER
@@ -74,8 +85,8 @@ services:
         sync: false
       - key: METRICS_TOKEN
         sync: false
-      # Object storage (Cloudflare R2 or any S3-compatible bucket). All four are
-      # required when STORAGE_PROVIDER=s3; /api/health names any that are missing.
+      # Object storage. Only needed once STORAGE_PROVIDER is flipped to `s3`;
+      # /api/health names any that are still missing.
       - key: S3_BUCKET
         sync: false
       - key: S3_ENDPOINT
