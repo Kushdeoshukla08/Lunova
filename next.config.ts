@@ -22,6 +22,8 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
+  // Self-contained server bundle for the production container (see docs/DEPLOYMENT.md).
+  output: "standalone",
   // Pin the workspace root so Turbopack doesn't walk up to a stray lockfile in $HOME.
   turbopack: { root: import.meta.dirname },
   experimental: {

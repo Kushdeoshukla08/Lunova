@@ -1,0 +1,39 @@
+# Prod-like local smoke test: the production image + a throwaway Postgres.
+# Not for real deployments — see docs/DEPLOYMENT.md.
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: lunova
+      POSTGRES_PASSWORD: lunova
+      POSTGRES_DB: lunova
+    ports: ["5433:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lunova"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    build: .
+    command: ["node_modules/.bin/prisma", "migrate", "deploy"]
+    environment:
+      DATABASE_URL: postgresql://lunova:lunova@db:5432/lunova?schema=public
+    depends_on:
+      db:
+        condition: service_healthy
+
+  app:
+    build: .
+    ports: ["3000:3000"]
+    environment:
+      NODE_ENV: production
+      APP_URL: http://localhost:3000
+      AUTH_SECRET: local-compose-secret-local-compose-secret-xx
+      DATABASE_URL: postgresql://lunova:lunova@db:5432/lunova?schema=public
+      STORAGE_PROVIDER: local
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
