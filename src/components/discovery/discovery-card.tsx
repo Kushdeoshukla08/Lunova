@@ -122,8 +122,10 @@ export function DiscoveryCard({
             <div className="waypoint text-[0.7rem] font-semibold uppercase tracking-[0.09em]">
               Say something real
             </div>
+            {/* An opener that quotes a prompt already opens with a quote mark;
+                wrapping it again rendered ““like this”. */}
             <p className="editorial mt-2 text-[1rem] leading-snug text-ink text-pretty">
-              “{opener.text}”
+              {opener.text.startsWith("“") ? opener.text : `“${opener.text}”`}
             </p>
             <p className="mt-1 text-xs text-ink-faint">Drawn from {opener.source}</p>
             {/* The opener is the product's core action, so it gets a full-size
