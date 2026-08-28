@@ -32,18 +32,26 @@ export async function getPublicProfile(
   if (viewerId === targetId) return null;
   if (await isBlockedEitherWay(viewerId, targetId)) return null;
 
-  const connected = Boolean(
-    await db.match.findFirst({
-      where: {
-        closedAt: null,
-        OR: [
-          { userAId: viewerId, userBId: targetId },
-          { userAId: targetId, userBId: viewerId },
-        ],
-      },
-      select: { id: true },
-    }),
-  );
+  const [connected, likedByTarget] = await Promise.all([
+    db.match
+      .findFirst({
+        where: {
+          closedAt: null,
+          OR: [
+            { userAId: viewerId, userBId: targetId },
+            { userAId: targetId, userBId: viewerId },
+          ],
+        },
+        select: { id: true },
+      })
+      .then(Boolean),
+    db.like
+      .findUnique({
+        where: { actorId_targetId: { actorId: targetId, targetId: viewerId } },
+        select: { kind: true },
+      })
+      .then((l) => l?.kind === "LIKE"),
+  ]);
 
   const u = await db.user.findFirst({
     where: { id: targetId, status: "ACTIVE" },
@@ -90,7 +98,13 @@ export async function getPublicProfile(
     },
   });
   if (!u || !u.profile || u.profile.onboardingStep) return null;
-  if (u.privacy?.profileVisibility === "PAUSED" && !connected) return null;
+
+  // Visibility gate. PAUSED: nobody but existing connections. LIMITED ("only
+  // people I've liked can find me"): the owner must have liked the viewer, or
+  // they must already be connected.
+  const vis = u.privacy?.profileVisibility;
+  if (vis === "PAUSED" && !connected) return null;
+  if (vis === "LIMITED" && !connected && !likedByTarget) return null;
 
   const p = u.profile;
   const canSee = (v?: string) => v === "PUBLIC" || (v === "CONNECTIONS" && connected);

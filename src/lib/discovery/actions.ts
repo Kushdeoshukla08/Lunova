@@ -34,7 +34,11 @@ async function assertInteractable(viewerId: string, targetUserId: string) {
   });
   if (blocked) return "This profile isn't available.";
   const target = await db.user.findFirst({
-    where: { id: targetUserId, status: "ACTIVE" },
+    where: {
+      id: targetUserId,
+      status: "ACTIVE",
+      profile: { is: { onboardingStep: null } },
+    },
     select: { id: true },
   });
   if (!target) return "This profile isn't available.";

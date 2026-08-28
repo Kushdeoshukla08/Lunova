@@ -74,16 +74,30 @@ export async function reportAction(
     return { ok: false, error: "You've filed several reports recently. Our team is on it." };
   }
 
-  // capture a small evidence snapshot for the moderation queue
+  // capture a small evidence snapshot for the moderation queue — but only from a
+  // conversation the reporter is actually part of (no reading arbitrary threads).
   let context: Record<string, unknown> = {};
   if (conversationId) {
-    const recent = await db.message.findMany({
-      where: { conversationId },
-      orderBy: { createdAt: "desc" },
-      take: 10,
-      select: { id: true, body: true, senderId: true, createdAt: true },
+    const convo = await db.conversation.findFirst({
+      where: {
+        id: conversationId,
+        match: {
+          OR: [{ userAId: user.id }, { userBId: user.id }],
+          // and the person being reported must be the other participant
+          AND: [{ OR: [{ userAId: subjectUserId }, { userBId: subjectUserId }] }],
+        },
+      },
+      select: { id: true },
     });
-    context = { conversationId, messageId, recentMessages: recent.reverse() };
+    if (convo) {
+      const recent = await db.message.findMany({
+        where: { conversationId },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+        select: { id: true, body: true, senderId: true, createdAt: true },
+      });
+      context = { conversationId, messageId, recentMessages: recent.reverse() };
+    }
   }
 
   await fileReport({

@@ -14,5 +14,9 @@ export default defineConfig({
     environment: "node",
     include: ["src/**/*.{test,spec}.ts", "tests/unit/**/*.{test,spec}.ts"],
     setupFiles: ["tests/setup.ts"],
+    // The *.integration.test.ts suites all share one Postgres database, so they
+    // must not run in parallel with each other. Pure unit tests are unaffected
+    // (they don't touch the DB) but the cost of serialising files is small.
+    fileParallelism: process.env.RUN_DB_TESTS !== "1",
   },
 });

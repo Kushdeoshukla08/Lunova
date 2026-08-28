@@ -49,7 +49,7 @@ export async function getDiscoveryFeed(
   const viewer = await loadViewer(viewerUserId);
   if (!viewer) return [];
 
-  const [blocks, acted] = await Promise.all([
+  const [blocks, acted, likedMe] = await Promise.all([
     db.block.findMany({
       where: { OR: [{ blockerId: viewerUserId }, { blockedId: viewerUserId }] },
       select: { blockerId: true, blockedId: true },
@@ -58,12 +58,19 @@ export async function getDiscoveryFeed(
       where: { actorId: viewerUserId },
       select: { targetId: true },
     }),
+    // people who have liked the viewer — the only ones a LIMITED profile is shown to
+    db.like.findMany({
+      where: { targetId: viewerUserId, kind: "LIKE" },
+      select: { actorId: true },
+      take: 2000,
+    }),
   ]);
   const excludeIds = new Set<string>([viewerUserId]);
   for (const b of blocks) {
     excludeIds.add(b.blockerId === viewerUserId ? b.blockedId : b.blockerId);
   }
   for (const a of acted) excludeIds.add(a.targetId);
+  const likedMeIds = likedMe.map((l) => l.actorId);
 
   const now = new Date();
   const oldest = new Date(now);
@@ -82,6 +89,12 @@ export async function getDiscoveryFeed(
       privacy: {
         is: { profileVisibility: { not: "PAUSED" }, discoveryPaused: false, incognito: false },
       },
+      // LIMITED profiles ("only people I've liked can find me") appear only to
+      // viewers they have liked.
+      OR: [
+        { privacy: { is: { profileVisibility: { not: "LIMITED" } } } },
+        { id: { in: likedMeIds } },
+      ],
       profile: {
         is: {
           onboardingStep: null,

@@ -25,3 +25,6 @@ export function generateNumericCode(digits = 6): string {
   const max = 10 ** digits;
   return String(randomInt(0, max)).padStart(digits, "0");
 }
+
+/** After this many wrong guesses a verification code is burned and must be re-requested. */
+export const MAX_OTP_ATTEMPTS = 5;

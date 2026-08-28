@@ -125,6 +125,13 @@ export async function deleteAccountAction(
       where: { OR: [{ actorId: user.id }, { targetId: user.id }] },
     });
     await tx.notification.deleteMany({ where: { userId: user.id } });
+    await tx.verificationToken.deleteMany({ where: { userId: user.id } });
+    // scrub the content of messages this user sent — the other party keeps a
+    // tombstone, not the words.
+    await tx.message.updateMany({
+      where: { senderId: user.id, deletedAt: null },
+      data: { body: "", deletedAt: new Date() },
+    });
     // anonymise the account shell (kept for referential integrity of others' data)
     await tx.user.update({
       where: { id: user.id },

@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
-import { generateNumericCode, hashToken } from "@/lib/auth/tokens";
+import { generateNumericCode, hashToken, MAX_OTP_ATTEMPTS } from "@/lib/auth/tokens";
 import { smsProvider } from "@/lib/providers/sms";
 import { storage } from "@/lib/providers/storage";
 import { idv } from "./provider";
@@ -73,10 +73,17 @@ export async function confirmPhone(
   });
   if (!token || token.codeHash !== hashToken(code)) {
     if (token) {
-      await db.verificationToken.update({
+      const updated = await db.verificationToken.update({
         where: { id: token.id },
         data: { attempts: { increment: 1 } },
+        select: { attempts: true },
       });
+      if (updated.attempts >= MAX_OTP_ATTEMPTS) {
+        await db.verificationToken.update({
+          where: { id: token.id },
+          data: { consumedAt: new Date() },
+        });
+      }
     }
     return { ok: false, error: "That code isn't right or has expired." };
   }

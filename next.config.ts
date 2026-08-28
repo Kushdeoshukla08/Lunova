@@ -26,7 +26,7 @@ const nextConfig: NextConfig = {
   turbopack: { root: import.meta.dirname },
   experimental: {
     // Server Actions are same-origin only; list extra trusted origins here if needed.
-    serverActions: { bodySizeLimit: "4mb" },
+    serverActions: { bodySizeLimit: "10mb" },
   },
   images: {
     // Local object-store previews + future CDN host. Tighten in production.

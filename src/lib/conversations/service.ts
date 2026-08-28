@@ -148,6 +148,8 @@ export async function getConversation(
           userAId: true,
           userBId: true,
           closedAt: true,
+          closedById: true,
+          closeReason: true,
           contextHeadline: true,
           contextTags: true,
         },
@@ -170,6 +172,9 @@ export async function getConversation(
   if (!convo) return null;
   const { match } = convo;
   if (match.userAId !== userId && match.userBId !== userId) return null;
+  // If this connection ended because one side blocked the other, the blocked
+  // party loses read access too — they can't keep re-opening the thread.
+  if (match.closeReason === "BLOCKED" && match.closedById !== userId) return null;
 
   const otherId = otherIdOf(match, userId);
   const other = await db.user.findUnique({

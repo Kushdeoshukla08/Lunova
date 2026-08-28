@@ -86,9 +86,26 @@ export async function applyModerationAction(
     return { ok: false, error: "You can't action your own account." };
   }
 
-  // BAN is admin-only
+  const target = await db.user.findUnique({
+    where: { id: targetUserId },
+    select: { role: true, status: true },
+  });
+  if (!target) return { ok: false, error: "That account no longer exists." };
+
+  // Only an admin may take action against another staff member.
+  if (target.role !== "USER" && staff.role !== "ADMIN") {
+    return { ok: false, error: "Only an admin can moderate a staff account." };
+  }
+  // BAN, and un-banning via CLEAR / REINSTATE, are admin-only.
   if (action === "BAN" && staff.role !== "ADMIN") {
     return { ok: false, error: "Only admins can ban accounts." };
+  }
+  if (
+    (action === "CLEAR" || action === "REINSTATE") &&
+    target.status === "BANNED" &&
+    staff.role !== "ADMIN"
+  ) {
+    return { ok: false, error: "Only an admin can lift a ban." };
   }
 
   const expiresAt =

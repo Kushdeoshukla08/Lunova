@@ -4,10 +4,10 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { rateLimiter, RATE_RULES } from "@/lib/rate-limit";
-import { hashPassword, verifyPassword } from "./password";
+import { hashPassword, verifyPasswordConstantTime } from "./password";
 import { createSession, destroySession } from "./session";
 import { getCurrentUser } from "./dal";
-import { generateNumericCode, hashToken } from "./tokens";
+import { generateNumericCode, hashToken, MAX_OTP_ATTEMPTS } from "./tokens";
 import { emailProvider } from "@/lib/providers/email";
 import {
   recordLoginAttempt,
@@ -26,9 +26,11 @@ const CODE_TTL_MS = 15 * 60 * 1000;
 
 async function clientIp(): Promise<string> {
   const h = await headers();
+  // Prefer a header a trusted reverse proxy sets to a single value. The leftmost
+  // x-forwarded-for entry is client-controlled and only a best-effort fallback.
   return (
+    h.get("x-real-ip")?.trim() ||
     h.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    h.get("x-real-ip") ||
     "unknown"
   );
 }
@@ -58,10 +60,6 @@ export async function signUpAction(
   formData: FormData,
 ): Promise<AuthFormState> {
   const ip = await clientIp();
-  const limit = await rateLimiter.check(`signup:${ip}`, RATE_RULES.signup);
-  if (!limit.ok) {
-    return { error: "Too many attempts. Try again in a little while." };
-  }
 
   const parsed = signUpSchema.safeParse({
     email: formData.get("email"),
@@ -74,19 +72,28 @@ export async function signUpAction(
   }
   const { email, password, birthdate } = parsed.data;
 
+  const [ipLimit, emailLimit] = await Promise.all([
+    rateLimiter.check(`signup:ip:${ip}`, RATE_RULES.signup),
+    rateLimiter.check(`signup:email:${email}`, RATE_RULES.resendCode),
+  ]);
+  if (!ipLimit.ok || !emailLimit.ok) {
+    return { error: "Too many attempts. Try again in a little while." };
+  }
+
+  // Always spend the hashing cost, before the existence check, so the response
+  // time doesn't reveal whether the email is already registered.
+  const passwordHash = await hashPassword(password);
+
   const existing = await db.user.findUnique({
     where: { email },
     select: { id: true },
   });
   if (existing) {
-    // Do not reveal whether an account exists.
     return {
       notice:
         "If that email is available, your account is ready — check your inbox for a code.",
     };
   }
-
-  const passwordHash = await hashPassword(password);
   const user = await db.user.create({
     data: {
       email,
@@ -146,7 +153,7 @@ export async function logInAction(
     select: { id: true, passwordHash: true, status: true, emailVerifiedAt: true },
   });
 
-  const ok = user ? await verifyPassword(password, user.passwordHash) : false;
+  const ok = await verifyPasswordConstantTime(password, user?.passwordHash);
 
   if (!user || !ok) {
     await recordLoginAttempt({
@@ -240,10 +247,18 @@ export async function verifyEmailAction(
 
   if (!token || token.codeHash !== hashToken(parsed.data.code)) {
     if (token) {
-      await db.verificationToken.update({
+      const updated = await db.verificationToken.update({
         where: { id: token.id },
         data: { attempts: { increment: 1 } },
+        select: { attempts: true },
       });
+      if (updated.attempts >= MAX_OTP_ATTEMPTS) {
+        // Burn the code — too many wrong guesses. A fresh one must be requested.
+        await db.verificationToken.update({
+          where: { id: token.id },
+          data: { consumedAt: new Date() },
+        });
+      }
     }
     return { fieldErrors: { code: ["That code isn't right or has expired."] } };
   }
