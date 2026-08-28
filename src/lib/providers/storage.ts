@@ -78,6 +78,41 @@ function contentTypeForKey(key: string): string {
   return MIME_BY_EXTENSION[ext] ?? "application/octet-stream";
 }
 
+/**
+ * The PutObject payload, as a plain value.
+ *
+ * Separated from `put()` so it can be asserted directly: the headers stored
+ * alongside an object are what stop it being served back as an active
+ * document, and testing them through a mocked AWS client tests the SDK's
+ * plumbing more than this decision.
+ */
+export function s3PutInput(
+  bucket: string,
+  key: string,
+  bytes: Buffer,
+  contentType: string,
+): {
+  Bucket: string;
+  Key: string;
+  Body: Buffer;
+  ContentType: string;
+  ContentDisposition: string;
+  CacheControl: string;
+} {
+  return {
+    Bucket: bucket,
+    Key: key,
+    Body: bytes,
+    // Pin the response type to the sniffed image type, so a stored object can
+    // never be re-interpreted on the way back out.
+    ContentType: contentType,
+    ContentDisposition: "inline",
+    // Member media is never shared-cacheable; the key is immutable, so a long
+    // max-age is safe once the request has been authorized by /media.
+    CacheControl: "private, max-age=31536000, immutable",
+  };
+}
+
 // ─── local (development + single-node staging) ───────────────────────────────
 
 /** Writes to a local directory, served by /media/[...key]. Ephemeral on PaaS. */
@@ -184,18 +219,7 @@ class S3StorageProvider implements StorageProvider {
       this.client(),
       import("@aws-sdk/client-s3"),
     ]);
-    await client.send(
-      new PutObjectCommand({
-        Bucket: env.S3_BUCKET!,
-        Key: key,
-        Body: bytes,
-        // Pin the response type to the sniffed image type and forbid sniffing,
-        // so a stored object can never be interpreted as an active document.
-        ContentType: contentType,
-        ContentDisposition: "inline",
-        CacheControl: "private, max-age=31536000, immutable",
-      }),
-    );
+    await client.send(new PutObjectCommand(s3PutInput(env.S3_BUCKET!, key, bytes, contentType)));
     return { key };
   }
 

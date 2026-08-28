@@ -553,6 +553,10 @@ model PrivacySetting {
   musicVisibility    Visibility        @default(PUBLIC)
   activityVisibility Visibility        @default(CONNECTIONS)
   distanceVisibility Visibility        @default(PUBLIC) // PUBLIC = show approx distance, PRIVATE = hide
+  // Kept, but no longer offered in the UI: nothing member-facing shows
+  // last-active, so the toggle changed nothing and a privacy switch that does
+  // nothing is worse than none. Column and default stay so surfacing active
+  // status later is a UI change, not a migration. See docs/SECURITY-AUDIT S17.
   showActiveStatus   Boolean           @default(true)
   showAgeExact       Boolean           @default(true)
   incognito          Boolean           @default(false) // only people I like see me

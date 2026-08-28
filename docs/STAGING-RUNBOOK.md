@@ -93,10 +93,53 @@ Walk the journey with the console open — zero CSP violations.
 - **Cold start**: hit the URL ~1 min before a session so the first tester
   doesn't wait on the spin-up.
 
+## Turning on durable media (Cloudflare R2)
+
+Until this is done, `STORAGE_PROVIDER=local` and uploads live on the container's
+disk, which is wiped on every deploy. The seeded persona photos are baked into
+the image so the demo feed still looks right, but **a photo a tester uploads is
+gone on the next deploy**. R2's free tier (10 GB, no egress fees) fixes it.
+
+Four values are needed. Nothing else changes — the provider is already
+implemented and tested (`src/lib/providers/storage.s3.test.ts`).
+
+1. **Create the bucket.** Cloudflare dashboard → R2 → *Create bucket*. Any name;
+   the region can stay automatic. **Leave it private** — do not attach a public
+   r2.dev domain or a public-read policy. Every URL in the product points at
+   `/media/[...key]`, which authenticates the viewer, checks blocks and
+   moderation state, then redirects to a short-lived signed URL. A public bucket
+   would route around all of it.
+2. **Create an API token.** R2 → *Manage R2 API Tokens* → *Create API token*,
+   permission **Object Read & Write**, scoped to that one bucket. It shows an
+   Access Key ID and a Secret Access Key once.
+3. **Note the endpoint.** On the bucket's settings page, the S3 API endpoint
+   looks like `https://<account-id>.r2.cloudflarestorage.com`.
+4. **Set four variables** on the Render service (Environment → Add):
+
+   | Variable | Value |
+   |---|---|
+   | `S3_BUCKET` | the bucket name |
+   | `S3_ENDPOINT` | `https://<account-id>.r2.cloudflarestorage.com` |
+   | `S3_ACCESS_KEY_ID` | Access Key ID from step 2 |
+   | `S3_SECRET_ACCESS_KEY` | Secret Access Key from step 2 |
+
+   Then change `STORAGE_PROVIDER` from `local` to `s3` and save. Render
+   redeploys automatically. `S3_REGION` is already `auto`, which is correct for
+   R2.
+
+**Verify:**
+```bash
+curl -s https://<your-host>/api/health   # storage: {"provider":"s3","ready":true,"missing":[]}
+```
+`ready: false` lists exactly which variables are still missing. Then upload a
+photo through the UI and confirm it survives a redeploy.
+
+Existing photo *rows* keep pointing at keys that only ever existed on the old
+disk, so re-seed after switching:
+`DATABASE_URL=… SEED_STAGING_RESET=1 APP_ENV=staging SEED_STAGING=1 npm run db:seed:staging`
+
 ## Upgrading later (still cheap, not free)
 
-- Persistent storage: Cloudflare R2 free tier (10 GB, no egress) →
-  `STORAGE_PROVIDER=s3` + `S3_*`.
 - Real email: Resend free tier (100/day) + a sending subdomain →
   `EMAIL_PROVIDER=resend` + `RESEND_API_KEY`.
 - Always-on app: Render Starter ($7/mo) removes the spin-down.

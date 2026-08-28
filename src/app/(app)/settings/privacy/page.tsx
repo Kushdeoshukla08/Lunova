@@ -22,7 +22,6 @@ export default async function PrivacySettingsPage() {
           musicVisibility: p?.musicVisibility ?? "PUBLIC",
           activityVisibility: p?.activityVisibility ?? "CONNECTIONS",
           distanceVisibility: p?.distanceVisibility ?? "PUBLIC",
-          showActiveStatus: p?.showActiveStatus ?? true,
           showAgeExact: p?.showAgeExact ?? true,
         }}
       />

@@ -122,20 +122,18 @@ export async function createPersona(
   });
   const profileId = user.profile!.id;
 
-  for (let i = 0; i < 2; i++) {
-    const key = `photos/persona/${slug(p.name)}-${i}.png`;
+  for (const { key, bytes, position, isPrimary } of personaPhotos(p)) {
     const abs = join(opts.uploadRoot, key);
     await mkdir(dirname(abs), { recursive: true });
-    const [top, bottom] = i === 0 ? p.gradient : [p.gradient[1], p.gradient[0]];
-    await writeFile(abs, gradientPng(600, 750, top, bottom));
+    await writeFile(abs, bytes);
     await prisma.photo.create({
       data: {
         profileId,
         storageKey: key,
-        position: i,
-        isPrimary: i === 0,
-        width: 600,
-        height: 750,
+        position,
+        isPrimary,
+        width: PERSONA_PHOTO_WIDTH,
+        height: PERSONA_PHOTO_HEIGHT,
         moderationStatus: "APPROVED",
       },
     });
@@ -206,4 +204,29 @@ export async function createPersona(
 
 function slug(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+}
+
+export const PERSONA_PHOTO_WIDTH = 600;
+export const PERSONA_PHOTO_HEIGHT = 750;
+
+/**
+ * A persona's photos — key and bytes together, derived only from the persona.
+ *
+ * Both the seeder (which writes them next to the database rows) and the Docker
+ * build (which bakes them into the image, because the container's disk is wiped
+ * on every deploy) go through this. Two copies of the key formula would drift,
+ * and the failure mode is silent: rows pointing at files that are not there.
+ */
+export function personaPhotos(
+  p: Pick<Persona, "name" | "gradient">,
+): { key: string; bytes: Buffer; position: number; isPrimary: boolean }[] {
+  return [0, 1].map((i) => {
+    const [top, bottom] = i === 0 ? p.gradient : [p.gradient[1], p.gradient[0]];
+    return {
+      key: `photos/persona/${slug(p.name)}-${i}.png`,
+      bytes: gradientPng(PERSONA_PHOTO_WIDTH, PERSONA_PHOTO_HEIGHT, top, bottom),
+      position: i,
+      isPrimary: i === 0,
+    };
+  });
 }

@@ -12,7 +12,6 @@ export function PrivacyStep({
   defaults: {
     musicVisibility: string;
     activityVisibility: string;
-    showActiveStatus: boolean;
     incognito: boolean;
   };
 }) {
@@ -45,12 +44,6 @@ export function PrivacyStep({
         </Field>
 
         <div className="flex flex-col gap-3 border-t border-line pt-4">
-          <Checkbox
-            name="showActiveStatus"
-            value="on"
-            defaultChecked={defaults.showActiveStatus}
-            label="Show when I was last active"
-          />
           <Checkbox
             name="incognito"
             value="on"

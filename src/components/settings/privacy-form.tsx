@@ -23,7 +23,6 @@ export function PrivacyForm({
     musicVisibility: string;
     activityVisibility: string;
     distanceVisibility: string;
-    showActiveStatus: boolean;
     showAgeExact: boolean;
   };
 }) {
@@ -71,7 +70,11 @@ export function PrivacyForm({
         </div>
         <div className="mt-4 flex flex-col gap-3 border-t border-line pt-4">
           <Checkbox name="showAgeExact" value="on" defaultChecked={defaults.showAgeExact} label="Show my exact age" />
-          <Checkbox name="showActiveStatus" value="on" defaultChecked={defaults.showActiveStatus} label="Show when I was last active" />
+          {/* No "show when I was last active" control: nothing member-facing
+              displays last-active, so the toggle changed nothing. A privacy
+              switch that does nothing is worse than no switch — someone may
+              believe they have hidden something. The column and its default
+              remain, so surfacing active status later is a UI change only. */}
         </div>
       </Card>
 

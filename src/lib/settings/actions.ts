@@ -45,7 +45,6 @@ const privacySchema = z.object({
   musicVisibility: z.enum(Visibility),
   activityVisibility: z.enum(Visibility),
   distanceVisibility: z.enum(Visibility),
-  showActiveStatus: z.boolean(),
   showAgeExact: z.boolean(),
 });
 
@@ -59,7 +58,6 @@ export async function updatePrivacyAction(
     musicVisibility: fd.get("musicVisibility"),
     activityVisibility: fd.get("activityVisibility"),
     distanceVisibility: fd.get("distanceVisibility"),
-    showActiveStatus: fd.get("showActiveStatus") === "on",
     showAgeExact: fd.get("showAgeExact") === "on",
   });
   if (!parsed.success) return { ok: false, error: "Something looked off — try again." };

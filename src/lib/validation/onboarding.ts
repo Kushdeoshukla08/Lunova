@@ -96,6 +96,5 @@ export const preferencesSchema = z
 export const privacySchema = z.object({
   musicVisibility: z.enum(Visibility).default("PUBLIC"),
   activityVisibility: z.enum(Visibility).default("CONNECTIONS"),
-  showActiveStatus: z.coerce.boolean().optional().default(true),
   incognito: z.coerce.boolean().optional().default(false),
 });

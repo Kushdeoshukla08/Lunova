@@ -459,7 +459,6 @@ async function savePrivacyStep(userId: string, fd: FormData): Promise<StepState>
   const parsed = privacySchema.safeParse({
     musicVisibility: fd.get("musicVisibility") ?? "PUBLIC",
     activityVisibility: fd.get("activityVisibility") ?? "CONNECTIONS",
-    showActiveStatus: fd.get("showActiveStatus") === "on",
     incognito: fd.get("incognito") === "on",
   });
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
@@ -469,7 +468,6 @@ async function savePrivacyStep(userId: string, fd: FormData): Promise<StepState>
     data: {
       musicVisibility: d.musicVisibility,
       activityVisibility: d.activityVisibility,
-      showActiveStatus: d.showActiveStatus,
       incognito: d.incognito,
     },
   });

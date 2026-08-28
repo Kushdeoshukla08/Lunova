@@ -150,14 +150,30 @@ See `src/lib/notifications/like-anonymity.integration.test.ts`.
 thread header could disagree with the profile.
 **Fix:** uses the shared `ageFromBirthdate`.
 
-## Open — needs a product decision, not a patch
+### S17 — `showActiveStatus` had no member-facing surface — **Fixed** · Low
+The control was offered in onboarding and Settings and written to the database,
+but last-active is shown only in the admin panel, so the switch changed nothing
+a member could see. Not a leak — a promise the product does not make, and the
+same failure mode as S14: a control that looks like it works.
+**Fix:** removed from both forms, and from both write paths — leaving the write
+in place would have silently flipped every stored value to `false` the next time
+anyone saved. The column and its `true` default remain, so surfacing active
+status later is a UI change rather than a migration. Honouring the flag instead
+would have meant *adding* a feature, which was out of scope.
 
-### S17 — `showActiveStatus` has no member-facing surface
-The control is offered in onboarding and Settings and is written to the
-database, but last-active time is shown only in the admin panel, so the switch
-changes nothing a member can see. It is not a leak — it is a promise the
-product does not currently make. Either surface active status (and honour the
-flag) or remove the control; leaving it is mildly misleading.
+## Accepted risks
+
+### npm advisory: `deepmerge-ts` stack exhaustion (via `@prisma/config`)
+Three "high" advisories, all the same root cause. `prisma` is a devDependency,
+but `@prisma/config` and `deepmerge-ts` are now staged into the runtime image so
+the container can migrate itself on boot — so this went from build-only to
+"loads once at boot".
+
+Not exploitable here: the exhaustion needs a maliciously recursive object graph,
+and the only thing merged is `prisma.config.ts`, which we author and which is a
+flat object. No request path reaches it — it runs before the server starts.
+The only remedy npm offers is downgrading to Prisma 6, a major-version
+regression. Revisit when Prisma ships a fixed `@prisma/config`.
 
 ## What held up
 

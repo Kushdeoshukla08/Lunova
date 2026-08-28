@@ -149,7 +149,6 @@ export async function StepSection({
           defaults={{
             musicVisibility: privacy?.musicVisibility ?? "PUBLIC",
             activityVisibility: privacy?.activityVisibility ?? "CONNECTIONS",
-            showActiveStatus: privacy?.showActiveStatus ?? true,
             incognito: privacy?.incognito ?? false,
           }}
         />

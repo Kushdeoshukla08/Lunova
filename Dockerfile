@@ -19,6 +19,12 @@ RUN npm run db:generate \
 # none of it is traced. The list lives in the script (with the test that keeps
 # it honest) rather than being spelled out here twice.
 RUN node scripts/migrator-deps.mjs /migrator-node-modules
+# Staging persona photos. The seed runs from a laptop against Neon, so it writes
+# the rows there and the files locally — the container never gets them, and its
+# disk is wiped every deploy, so every seeded photo 404s. They are deterministic
+# gradients, so generate exactly the bytes the seeder would have written.
+# Inert in production: nothing serves them without a matching Photo row.
+RUN npx tsx scripts/stage-persona-photos.ts /demo-uploads
 
 # ─── runtime ─────────────────────────────────────────────────────────────────
 FROM node:22-slim AS runner
@@ -55,7 +61,10 @@ COPY --from=build /migrator-node-modules ./node_modules
 COPY --from=build /app/docker-entrypoint.sh ./docker-entrypoint.sh
 
 # Writable upload dir for STORAGE_PROVIDER=local (staging free tier). Ephemeral —
-# wiped on redeploy; that's expected. Production uses S3/R2 and never touches this.
+# a photo a tester uploads is still gone on the next deploy; only real object
+# storage fixes that. The seeded persona photos are baked in above so at least
+# the demo feed is not full of broken images.
+COPY --from=build /demo-uploads /app/.uploads
 RUN mkdir -p /app/.uploads /home/lunova/.cache \
  && chown -R lunova:lunova /app/.uploads /home/lunova
 
