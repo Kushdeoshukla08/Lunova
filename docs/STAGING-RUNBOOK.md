@@ -53,6 +53,25 @@ APP_ENV=staging SEED_STAGING=1 npm run db:seed:staging   # the 14 demo personas
 ```bash
 curl -s https://<your-host>/api/health         # {"ok":true,"db":"up",...}
 ```
+
+Read the whole body, not just `ok`. Two fields say whether the deploy is really
+sound, and neither of them affects the status code:
+
+- **`migrations.upToDate`** — `false` means the running image expects a schema
+  the database does not have. The app can look fine and still be one index or
+  one column short. It happens whenever `RUN_MIGRATIONS_ON_START` is `0` and a
+  migration lands in a later commit. Fix from the service's **Shell**:
+  ```bash
+  node node_modules/prisma/build/index.js migrate deploy
+  ```
+  (`node_modules/.bin/prisma` is a symlink Docker flattens into a broken copy —
+  call the entry point directly.) Then re-check `/api/health`. To stop it
+  recurring, set `RUN_MIGRATIONS_ON_START=1`, which is what `render.yaml`
+  declares.
+- **`storage.ready`** — `false` lists the `S3_*` variables that are missing by
+  name. With `STORAGE_PROVIDER=local` it is always `true`, and uploads live on
+  the container's ephemeral disk: they vanish on every redeploy, which is why
+  seeded persona photos 404 after a deploy.
 Then in a browser: sign up → (read the code from Render logs) → verify → onboard
 → land in a populated Discovery feed → like a persona → open the conversation.
 
