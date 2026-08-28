@@ -1,4 +1,6 @@
 import "server-only";
+import { captureError } from "@/lib/observability/errors";
+import { metrics } from "@/lib/observability/metrics";
 
 /**
  * Shared resilience helpers for external providers. The rule (docs/DEPLOYMENT.md,
@@ -52,14 +54,22 @@ export async function withRetry<T>(fn: () => Promise<T>, opts: RetryOpts = {}): 
   let lastErr: unknown;
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      return await withTimeout(fn(), timeoutMs, label);
+      const out = await withTimeout(fn(), timeoutMs, label);
+      metrics.increment(
+        "lunova_provider_calls_total",
+        { label, outcome: attempt === 0 ? "ok" : "ok_after_retry" },
+        "External provider calls by outcome",
+      );
+      return out;
     } catch (err) {
       lastErr = err;
       if (attempt === retries || !retryable(err)) break;
+      metrics.increment("lunova_provider_calls_total", { label, outcome: "retry" });
       const delay = baseDelayMs * 2 ** attempt + Math.floor(Math.random() * baseDelayMs);
       await new Promise((r) => setTimeout(r, delay));
     }
   }
+  metrics.increment("lunova_provider_calls_total", { label, outcome: "failed" });
   throw lastErr;
 }
 
@@ -76,7 +86,7 @@ export async function bestEffort(
     await withRetry(fn, { label, ...opts });
     return { ok: true };
   } catch (err) {
-    console.error(`[provider] ${label} failed after retries:`, err);
+    captureError(err, { scope: `provider.${label}`, fields: { bestEffort: true } });
     return { ok: false };
   }
 }

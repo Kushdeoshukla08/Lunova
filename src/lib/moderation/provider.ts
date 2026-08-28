@@ -1,6 +1,15 @@
 import "server-only";
 import { env } from "@/lib/env";
 import { isRetryableHttp, withRetry } from "@/lib/providers/resilience";
+import { metrics } from "@/lib/observability/metrics";
+
+function modMetric(kind: "image" | "text", action: string): void {
+  metrics.increment(
+    "lunova_moderation_calls_total",
+    { kind, action },
+    "Moderation checks by content kind and verdict",
+  );
+}
 
 export type ModerationAction = "allow" | "review" | "reject";
 
@@ -67,9 +76,12 @@ const RETRY = { retries: 1, timeoutMs: 6_000, retryable: isRetryableHttp } as co
  */
 export async function moderateImage(b: Buffer, t: string): Promise<ModerationVerdict> {
   try {
-    return await withRetry(() => moderation.image(b, t), { label: "moderation.image", ...RETRY });
+    const v = await withRetry(() => moderation.image(b, t), { label: "moderation.image", ...RETRY });
+    modMetric("image", v.action);
+    return v;
   } catch (err) {
     console.error("[moderation] image check failed — holding for review:", err);
+    modMetric("image", "provider_unavailable");
     return { action: "review", labels: { error: "provider_unavailable" } };
   }
 }
@@ -79,9 +91,12 @@ export async function moderateText(
   ctx: "bio" | "prompt" | "message" | "report",
 ): Promise<ModerationVerdict> {
   try {
-    return await withRetry(() => moderation.text(v, ctx), { label: "moderation.text", ...RETRY });
+    const verdict = await withRetry(() => moderation.text(v, ctx), { label: "moderation.text", ...RETRY });
+    modMetric("text", verdict.action);
+    return verdict;
   } catch (err) {
     console.error("[moderation] text check failed — allowing + flagging:", err);
+    modMetric("text", "provider_unavailable");
     return { action: "allow", labels: { error: "provider_unavailable", deferred: true } };
   }
 }

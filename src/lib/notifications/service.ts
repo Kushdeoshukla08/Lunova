@@ -1,6 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import type { NotificationType } from "@/generated/prisma/enums";
+import { captureError } from "@/lib/observability/errors";
 
 export interface NotificationItem {
   id: string;
@@ -144,6 +145,6 @@ export async function notify(
       data: { userId, type, payload: payload as object | undefined },
     });
   } catch (err) {
-    console.error("notify failed", err);
+    captureError(err, { scope: "notifications.notify" });
   }
 }

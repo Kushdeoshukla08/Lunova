@@ -18,6 +18,13 @@ const schema = z.object({
 
   REDIS_URL: z.string().optional(),
 
+  // ── Observability ─────────────────────────────────────────────────────────
+  LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).optional(),
+  /** Bearer token guarding GET /api/metrics. Unset ⇒ the endpoint is disabled. */
+  METRICS_TOKEN: z.string().optional(),
+  /** Error-tracking DSN (e.g. Sentry). Unset ⇒ errors are logged only. */
+  SENTRY_DSN: z.string().optional(),
+
   MUSIC_PROVIDER: z.enum(["internal", "spotify"]).default("internal"),
   MODERATION_PROVIDER: z.string().default("heuristic"),
   MODERATION_API_KEY: z.string().optional(),

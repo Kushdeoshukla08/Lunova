@@ -15,6 +15,15 @@ import {
   recentFailedLogins,
 } from "@/lib/safety/events";
 import { logInSchema, signUpSchema, verifyCodeSchema } from "@/lib/validation/auth";
+import { metrics } from "@/lib/observability/metrics";
+
+function authMetric(action: string, outcome: string): void {
+  metrics.increment(
+    "lunova_auth_attempts_total",
+    { action, outcome },
+    "Authentication attempts by action and outcome",
+  );
+}
 
 export type AuthFormState = {
   error?: string;
@@ -148,6 +157,7 @@ export async function logInAction(
     rateLimiter.check(`login:email:${email}`, RATE_RULES.loginPerEmail),
   ]);
   if (!ipLimit.ok || !emailLimit.ok) {
+    authMetric("login", "rate_limited");
     return { error: "Too many sign-in attempts. Please wait a few minutes." };
   }
 
@@ -179,15 +189,18 @@ export async function logInAction(
         });
       }
     }
+    authMetric("login", user ? "bad_password" : "no_user");
     return { error: "That email or password doesn't look right." };
   }
 
   if (user.status === "BANNED") {
     await recordLoginAttempt({ email, success: false, reason: "banned", userId: user.id, ip, userAgent });
+    authMetric("login", "banned");
     return { error: "This account has been permanently closed." };
   }
 
   await recordLoginAttempt({ email, success: true, reason: "ok", userId: user.id, ip, userAgent });
+  authMetric("login", "success");
   await db.user.update({
     where: { id: user.id },
     data: { lastActiveAt: new Date() },

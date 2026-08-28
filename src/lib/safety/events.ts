@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { captureError } from "@/lib/observability/errors";
 import type {
   SafetyEventType,
   SafetySeverity,
@@ -29,7 +30,7 @@ export async function recordSafetyEvent(input: {
       },
     });
   } catch (err) {
-    console.error("recordSafetyEvent failed", err);
+    captureError(err, { scope: "safety.recordSafetyEvent" });
   }
 }
 
@@ -53,7 +54,7 @@ export async function recordLoginAttempt(input: {
       },
     });
   } catch (err) {
-    console.error("recordLoginAttempt failed", err);
+    captureError(err, { scope: "safety.recordLoginAttempt" });
   }
 }
 
