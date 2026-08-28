@@ -8,23 +8,44 @@ import { Avatar } from "@/components/ui/avatar";
 import { LunovaMark } from "@/components/brand/wordmark";
 import type { CurrentUser } from "@/lib/auth/dal";
 
-type NavItem = { href: string; label: string; icon: React.ReactNode };
+export type NavLabels = {
+  discover: string;
+  connections: string;
+  activity: string;
+  profile: string;
+  notifications: string;
+  settings: string;
+};
+
+const DEFAULT_LABELS: NavLabels = {
+  discover: "Discover",
+  connections: "Connections",
+  activity: "Activity",
+  profile: "Profile",
+  notifications: "Notifications",
+  settings: "Settings",
+};
+
+type NavKey = "discover" | "connections" | "activity" | "profile";
+type NavItem = { href: string; key: NavKey; icon: React.ReactNode };
 
 const NAV: NavItem[] = [
-  { href: "/discover", label: "Discover", icon: <IconCompass /> },
-  { href: "/connections", label: "Connections", icon: <IconSpark /> },
-  { href: "/activity", label: "Activity", icon: <IconPulse /> },
-  { href: "/profile", label: "Profile", icon: <IconPerson /> },
+  { href: "/discover", key: "discover", icon: <IconCompass /> },
+  { href: "/connections", key: "connections", icon: <IconSpark /> },
+  { href: "/activity", key: "activity", icon: <IconPulse /> },
+  { href: "/profile", key: "profile", icon: <IconPerson /> },
 ];
 
 export function AppShell({
   user,
   children,
+  labels = DEFAULT_LABELS,
   unreadConnections = 0,
   unreadNotifications = 0,
 }: {
   user: CurrentUser;
   children: React.ReactNode;
+  labels?: NavLabels;
   unreadConnections?: number;
   unreadNotifications?: number;
 }) {
@@ -65,7 +86,7 @@ export function AppShell({
               )}
             >
               <span className="[&_svg]:size-5">{item.icon}</span>
-              {item.label}
+              {labels[item.key]}
               {badgeFor(item.href) && (
                 <span className="ml-auto grid min-w-5 place-items-center rounded-full bg-glow px-1.5 text-xs font-medium text-white">
                   {badgeFor(item.href)}
@@ -85,7 +106,7 @@ export function AppShell({
           )}
         >
           <span className="[&_svg]:size-5"><IconBell /></span>
-          Notifications
+          {labels.notifications}
           {unreadNotifications > 0 && (
             <span className="ml-auto grid min-w-5 place-items-center rounded-full bg-glow px-1.5 text-xs font-medium text-white">
               {unreadNotifications}
@@ -97,7 +118,7 @@ export function AppShell({
           className="mt-1 flex items-center gap-3 rounded-[var(--radius-md)] px-3 py-2.5 text-sm text-ink-soft hover:bg-sand/60 hover:text-ink"
         >
           <Avatar name={user.displayName ?? user.email} size="xs" />
-          <span className="truncate">{user.displayName ?? "Settings"}</span>
+          <span className="truncate">{user.displayName ?? labels.settings}</span>
         </Link>
       </aside>
 
@@ -144,7 +165,7 @@ export function AppShell({
             )}
           >
             <span className="[&_svg]:size-6">{item.icon}</span>
-            {item.label}
+            {labels[item.key]}
             {badgeFor(item.href) && (
               <span className="absolute right-[calc(50%-1.75rem)] top-1.5 grid min-w-4 place-items-center rounded-full bg-glow px-1 text-[0.6rem] font-semibold text-white">
                 {badgeFor(item.href)}

@@ -12,6 +12,7 @@ const LINKS = [
   ["/settings/notifications", "Notifications", "What we tell you about, and how"],
   ["/settings/privacy", "Privacy & visibility", "Who sees your profile, music, activity and distance"],
   ["/settings/security", "Security", "Signed-in devices and sessions"],
+  ["/settings/language", "Language & region", "Display language, and how dates and distances are shown"],
   ["/settings/blocked", "Blocked people", "Manage who you've blocked"],
   ["/settings/account", "Account", "Export or delete your data"],
 ];

@@ -18,17 +18,28 @@ function toRad(deg: number): number {
   return (deg * Math.PI) / 180;
 }
 
-/** Coarse, privacy-preserving distance phrasing. Never a precise number below 2 km. */
-export function describeDistance(km: number | null, precision: string): string | null {
+/**
+ * Coarse, privacy-preserving distance phrasing. Never a precise number below the
+ * "Nearby" threshold. `units` follows the viewer's regional convention and
+ * defaults to metric, so existing callers and tests are unaffected.
+ */
+export function describeDistance(
+  km: number | null,
+  precision: string,
+  units: "metric" | "imperial" = "metric",
+): string | null {
   if (km == null) return null;
+
+  if (units === "imperial") {
+    const mi = km * 0.621371;
+    if (mi < 1) return "Nearby";
+    const step = precision === "REGION" ? 15 : precision === "NEIGHBORHOOD" ? 1 : 3;
+    return `${Math.max(1, Math.round(mi / step) * step)} mi away`;
+  }
+
   if (km < 2) return "Nearby";
-  const rounded =
-    precision === "REGION"
-      ? Math.round(km / 25) * 25
-      : precision === "NEIGHBORHOOD"
-        ? Math.round(km)
-        : Math.round(km / 5) * 5;
-  return `${Math.max(2, rounded)} km away`;
+  const step = precision === "REGION" ? 25 : precision === "NEIGHBORHOOD" ? 1 : 5;
+  return `${Math.max(2, Math.round(km / step) * step)} km away`;
 }
 
 export function ageFromBirthdate(birthdate: Date, now = new Date()): number {

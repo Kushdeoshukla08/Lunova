@@ -6,6 +6,7 @@ import { cn } from "@/lib/cn";
 import { sendMessageAction } from "@/lib/messaging/actions";
 import { markReadAction } from "@/lib/messaging/read-actions";
 import { formatDayHeading, formatTime } from "@/lib/format";
+import type { FormatContext } from "@/lib/i18n/format";
 import { Button } from "@/components/ui/button";
 import { FormMessage } from "@/components/auth/form-message";
 import { useRealtime } from "@/components/realtime/realtime-provider";
@@ -19,12 +20,14 @@ export function MessageThread({
   otherName,
   closed,
   matchHeadline,
+  format,
 }: {
   conversationId: string;
   initialMessages: ThreadMessage[];
   otherName: string;
   closed: boolean;
   matchHeadline?: string | null;
+  format?: FormatContext;
 }) {
   const router = useRouter();
   const noHumanMessages = initialMessages.every((m) => m.system);
@@ -100,7 +103,7 @@ export function MessageThread({
     });
   };
 
-  const groups = groupByDay(messages);
+  const groups = groupByDay(messages, format);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -144,7 +147,7 @@ export function MessageThread({
                         ? "sending…"
                         : m.state === "failed"
                           ? "failed — tap Send to retry"
-                          : formatTime(m.createdAt)}
+                          : formatTime(m.createdAt, format)}
                       {m.fromMe && !m.state && m.readAt && (
                         <span title="Read" aria-label="Message read" data-read-receipt>
                           <svg viewBox="0 0 16 12" className="h-2.5 w-4" aria-hidden="true">
@@ -223,10 +226,11 @@ export function MessageThread({
 
 function groupByDay<T extends { id: string; createdAt: Date; tempId?: string }>(
   messages: T[],
+  format?: FormatContext,
 ) {
   const groups: { day: string; items: T[] }[] = [];
   for (const m of messages) {
-    const day = formatDayHeading(m.createdAt);
+    const day = formatDayHeading(m.createdAt, format);
     const last = groups.at(-1);
     if (last && last.day === day) last.items.push(m);
     else groups.push({ day, items: [m] });

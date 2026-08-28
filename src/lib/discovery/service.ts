@@ -44,7 +44,10 @@ const BATCH = 60;
  */
 export async function getDiscoveryFeed(
   viewerUserId: string,
-  { limit = 15 }: { limit?: number } = {},
+  {
+    limit = 15,
+    units = "metric",
+  }: { limit?: number; units?: "metric" | "imperial" } = {},
 ): Promise<DiscoveryProfile[]> {
   const viewer = await loadViewer(viewerUserId);
   if (!viewer) return [];
@@ -131,7 +134,7 @@ export async function getDiscoveryFeed(
     })
     .slice(0, limit);
 
-  return scored.map(({ c, result }) => shapeProfile(c, viewer, result));
+  return scored.map(({ c, result }) => shapeProfile(c, viewer, result, units));
 }
 
 // ─── loading ─────────────────────────────────────────────────────────────────
@@ -310,6 +313,7 @@ function shapeProfile(
   c: CandidateRow,
   viewer: { compat: CompatInput },
   result: ReturnType<typeof computeCompatibility>,
+  units: "metric" | "imperial",
 ): DiscoveryProfile {
   const p = c.profile!;
   const musicVisible = p.music?.visibility === "PUBLIC";
@@ -322,7 +326,7 @@ function shapeProfile(
     pronouns: p.pronouns,
     bio: p.bio,
     city: p.city,
-    distanceText: describeDistance(result.distanceKm, p.locationPrecision),
+    distanceText: describeDistance(result.distanceKm, p.locationPrecision, units),
     photos: p.photos.map((ph) => ({
       id: ph.id,
       url: `/media/${ph.storageKey}`,

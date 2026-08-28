@@ -42,6 +42,9 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
+  // Only `en` ships today, so the document language is static. When a second
+  // locale lands, make this async and read `resolveLocale()` from `@/lib/i18n/locale`
+  // (that turns the marketing pages dynamic — an acceptable trade at that point).
   return (
     <html
       lang="en"

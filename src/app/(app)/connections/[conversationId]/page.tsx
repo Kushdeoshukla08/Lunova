@@ -6,6 +6,7 @@ import { getConversation, markConversationRead } from "@/lib/conversations/servi
 import { Avatar } from "@/components/ui/avatar";
 import { SafetyMenu } from "@/components/safety/safety-menu";
 import { MessageThread } from "@/components/messaging/message-thread";
+import { getFormatContext } from "@/lib/i18n/locale";
 
 export async function generateMetadata(
   props: PageProps<"/connections/[conversationId]">,
@@ -26,6 +27,8 @@ export default async function ConversationPage(
 
   // mark the other side's messages read on open (best-effort)
   await markConversationRead(user.id, conversationId);
+
+  const format = await getFormatContext();
 
   return (
     <div className="flex h-[calc(100dvh-8rem)] flex-col lg:h-[calc(100dvh-6rem)]">
@@ -79,6 +82,7 @@ export default async function ConversationPage(
         otherName={convo.other.name}
         closed={convo.closed}
         matchHeadline={convo.matchHeadline}
+        format={format}
       />
     </div>
   );
