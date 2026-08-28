@@ -27,6 +27,13 @@ export function DiscoveryCard({
   const [expanded, setExpanded] = React.useState(false);
   const opener = React.useMemo(() => suggestOpener(profile), [profile]);
   const personality = firstSentence(profile.bio);
+  const topHighlights = profile.compatibility.highlights.slice(0, 3);
+  // Don't repeat, in an identity block, a reason already shown in "why you might click".
+  const shownReasons = new Set(topHighlights.map((h) => h.text));
+  const overlapFor = (kind: Highlight["kind"]) => {
+    const t = highlightText(profile.compatibility.highlights, kind);
+    return t && !shownReasons.has(t) ? t : null;
+  };
   let step = 0;
 
   const hasMore =
@@ -79,7 +86,7 @@ export function DiscoveryCard({
         )}
 
         {/* Why you might click — the hook */}
-        {profile.compatibility.highlights.length > 0 && (
+        {topHighlights.length > 0 && (
           <Reveal index={step++} className="flex flex-col gap-2.5">
             <div className="waypoint text-[0.7rem] font-semibold uppercase tracking-[0.09em]">
               Why you might click
@@ -88,7 +95,7 @@ export function DiscoveryCard({
               {profile.compatibility.label}
             </p>
             <ul className="flex flex-col gap-1.5">
-              {profile.compatibility.highlights.slice(0, 3).map((h, idx) => (
+              {topHighlights.map((h, idx) => (
                 <li key={idx} className="flex items-center gap-2 text-sm text-ink">
                   <HDot tone={h.tone} />
                   {h.text}
@@ -97,6 +104,36 @@ export function DiscoveryCard({
             </ul>
           </Reveal>
         )}
+
+        {/* Say something real — the opener, kept high so "what could I say?" is
+            answered before the reader has to scroll through the detail. */}
+        {opener && (
+          <Reveal index={step++} className="rounded-[var(--radius-md)] bg-sand/60 p-4">
+            <div className="waypoint text-[0.7rem] font-semibold uppercase tracking-[0.09em]">
+              Say something real
+            </div>
+            <p className="editorial mt-2 text-[1rem] leading-snug text-ink text-pretty">
+              “{opener.text}”
+            </p>
+            <p className="mt-1 text-xs text-ink-faint">Drawn from {opener.source}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                onClick={() => onLike(opener.text, opener.elementRef)}
+                loading={pending}
+              >
+                Send this &amp; like
+              </Button>
+              <Button size="sm" variant="ghost" onClick={onWriteYourOwn} disabled={pending}>
+                Write your own
+              </Button>
+            </div>
+          </Reveal>
+        )}
+
+        <div className="waypoint text-[0.7rem] font-semibold uppercase tracking-[0.09em]">
+          More about {profile.displayName}
+        </div>
 
         {profile.prompts[0] && (
           <Reveal index={step++} as="blockquote" className="border-l-2 border-glow-ring pl-3.5">
@@ -114,7 +151,7 @@ export function DiscoveryCard({
               label="In heavy rotation"
               names={profile.music.artists.slice(0, 6)}
               note={profile.music.mood}
-              overlap={highlightText(profile.compatibility.highlights, "music")}
+              overlap={overlapFor("music")}
             />
           </Reveal>
         )}
@@ -131,7 +168,7 @@ export function DiscoveryCard({
                   ? `Moving ${profile.activity.activeDays === 7 ? "most days" : `~${profile.activity.activeDays} days a week`}`
                   : null)
               }
-              overlap={highlightText(profile.compatibility.highlights, "activity")}
+              overlap={overlapFor("activity")}
             />
           </Reveal>
         )}
@@ -193,31 +230,6 @@ export function DiscoveryCard({
           >
             {expanded ? "Show less" : "See full profile"}
           </button>
-        )}
-
-        {/* Say something real — answers "what could I say?" */}
-        {opener && (
-          <Reveal index={step++} className="rounded-[var(--radius-md)] bg-sand/60 p-4">
-            <div className="waypoint text-[0.7rem] font-semibold uppercase tracking-[0.09em]">
-              Say something real
-            </div>
-            <p className="editorial mt-2 text-[1rem] leading-snug text-ink text-pretty">
-              “{opener.text}”
-            </p>
-            <p className="mt-1 text-xs text-ink-faint">Drawn from {opener.source}</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                onClick={() => onLike(opener.text, opener.elementRef)}
-                loading={pending}
-              >
-                Send this &amp; like
-              </Button>
-              <Button size="sm" variant="ghost" onClick={onWriteYourOwn} disabled={pending}>
-                Write your own
-              </Button>
-            </div>
-          </Reveal>
         )}
       </div>
 
