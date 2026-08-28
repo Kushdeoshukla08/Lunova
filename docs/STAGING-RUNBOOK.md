@@ -43,8 +43,9 @@ APP_ENV=staging SEED_STAGING=1 npm run db:seed:staging   # the 14 demo personas
    - `AUTH_SECRET` — `openssl rand -base64 48`
    - `DATABASE_URL` — the Neon pooled string from step 1
    - `METRICS_TOKEN` — `openssl rand -base64 24` (guards `/api/metrics`)
-3. Deploy. `RUN_MIGRATIONS_ON_START=1` makes the container run
-   `prisma migrate deploy` on boot (idempotent), so it's a no-op after step 2.
+3. Deploy. The container applies pending migrations on boot before starting the
+   server, so this is a no-op after step 2 and every later deploy carries its
+   own schema changes with it. Nothing to configure.
 4. Note the assigned URL. If it isn't `https://lunova-staging.onrender.com`,
    update `APP_URL` in the Render env to match, and redeploy (a wrong `APP_URL`
    breaks OG links and the Server-Action origin check).
@@ -59,15 +60,11 @@ sound, and neither of them affects the status code:
 
 - **`migrations.upToDate`** — `false` means the running image expects a schema
   the database does not have. The app can look fine and still be one index or
-  one column short. It happens whenever `RUN_MIGRATIONS_ON_START` is `0` and a
-  migration lands in a later commit. Fix from the service's **Shell**:
-  ```bash
-  node node_modules/prisma/build/index.js migrate deploy
-  ```
-  (`node_modules/.bin/prisma` is a symlink Docker flattens into a broken copy —
-  call the entry point directly.) Then re-check `/api/health`. To stop it
-  recurring, set `RUN_MIGRATIONS_ON_START=1`, which is what `render.yaml`
-  declares.
+  one column short. The container migrates itself on boot, so this should only
+  ever be `false` if that failed — check the deploy logs for
+  `[entrypoint] MIGRATIONS FAILED`, which prints the reason. A redeploy retries.
+  The usual causes are a database that was unreachable during boot, or a
+  migration that conflicts with data already in the table.
 - **`storage.ready`** — `false` lists the `S3_*` variables that are missing by
   name. With `STORAGE_PROVIDER=local` it is always `true`, and uploads live on
   the container's ephemeral disk: they vanish on every redeploy, which is why

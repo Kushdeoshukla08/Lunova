@@ -14,10 +14,14 @@ services:
       timeout: 5s
       retries: 10
 
+  # Migrations run as their own one-shot service here so `app` can wait for
+  # them to finish. The entrypoint would otherwise migrate too — MIGRATE_ON_START=0
+  # keeps that from happening twice.
   migrate:
     build: .
     command: ["node", "node_modules/prisma/build/index.js", "migrate", "deploy"]
     environment:
+      MIGRATE_ON_START: "0"
       DATABASE_URL: postgresql://lunova:lunova@db:5432/lunova?schema=public
     depends_on:
       db:
@@ -32,6 +36,7 @@ services:
       AUTH_SECRET: local-compose-secret-local-compose-secret-xx
       DATABASE_URL: postgresql://lunova:lunova@db:5432/lunova?schema=public
       STORAGE_PROVIDER: local
+      MIGRATE_ON_START: "0"   # the `migrate` service above already applied them
     depends_on:
       db:
         condition: service_healthy

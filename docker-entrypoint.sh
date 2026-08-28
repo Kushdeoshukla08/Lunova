@@ -1,22 +1,43 @@
 #!/bin/sh
 set -e
 
-# Opt-in: run migrations before serving. For hosts without a release/pre-deploy
-# hook (e.g. Render's free tier). Call the CLI's real entry directly — the
-# npm-generated `.bin/prisma` shim is a symlink that Docker flattens into a
-# broken file copy (`Cannot find module './cli.js'`). `node_modules/prisma` is
-# copied whole, so `build/index.js` + its wasm siblings resolve correctly.
-# A migrate failure is logged but does NOT stop the server from starting — a
-# booted app whose /api/health reports "migrations behind" is far easier to
-# diagnose than a crash loop. Leave RUN_MIGRATIONS_ON_START unset where the
-# platform runs migrations separately (docker-compose does).
-if [ "$RUN_MIGRATIONS_ON_START" = "1" ]; then
-  echo "[entrypoint] prisma migrate deploy"
+# ─── Migrations ──────────────────────────────────────────────────────────────
+# Applied on every boot, by default.
+#
+# The alternative would be a release hook, but Render's free tier has neither a
+# Shell nor a pre-deploy command, so the container is the only place migrations
+# can run. `migrate deploy` is forward-only and idempotent: on an already-current
+# database it applies nothing, and if two containers start together Prisma's
+# advisory lock serialises them.
+#
+# Call the CLI's real entry point — the npm-generated `.bin/prisma` shim is a
+# symlink that Docker flattens into a broken file copy (`Cannot find module
+# './cli.js'`). The modules it loads are staged into the image by
+# scripts/migrator-deps.mjs, and scripts/migrator-deps.test.ts proves that set
+# is complete.
+#
+# Set MIGRATE_ON_START=0 where something else owns migrations (docker-compose
+# runs them as a separate one-shot command).
+if [ "$MIGRATE_ON_START" = "0" ]; then
+  echo "[entrypoint] MIGRATE_ON_START=0 — skipping migrations"
+else
+  echo "[entrypoint] applying database migrations"
   set +e
   node node_modules/prisma/build/index.js migrate deploy
   code=$?
   set -e
-  [ "$code" -ne 0 ] && echo "[entrypoint] WARNING: migrate deploy exited $code — starting server anyway; check /api/health"
+  if [ "$code" -ne 0 ]; then
+    # Deliberately not fatal. A booted app whose /api/health reports
+    # "migrations.upToDate: false" can be diagnosed from outside; a crash loop
+    # on a host with no shell access cannot.
+    echo "[entrypoint] ================================================================"
+    echo "[entrypoint] MIGRATIONS FAILED (exit $code) — starting the server anyway."
+    echo "[entrypoint] The database is behind the code. /api/health will report"
+    echo "[entrypoint] migrations.upToDate: false until this is resolved."
+    echo "[entrypoint] ================================================================"
+  else
+    echo "[entrypoint] migrations up to date"
+  fi
 fi
 
 # Run whatever command was passed (CMD), defaulting to the Next server.

@@ -14,6 +14,11 @@ RUN npm run db:generate \
  && DATABASE_URL="postgresql://build:build@localhost:5432/build" \
     AUTH_SECRET="build-only-build-only-build-only-build-only" \
     npm run build
+# Gather the modules the Prisma CLI loads for `migrate deploy`. The standalone
+# trace covers only what the app imports, and the CLI is a devDependency, so
+# none of it is traced. The list lives in the script (with the test that keeps
+# it honest) rather than being spelled out here twice.
+RUN node scripts/migrator-deps.mjs /migrator-node-modules
 
 # ─── runtime ─────────────────────────────────────────────────────────────────
 FROM node:22-slim AS runner
@@ -39,6 +44,10 @@ COPY --from=build /app/prisma.config.ts ./prisma.config.ts
 COPY --from=build /app/node_modules/prisma ./node_modules/prisma
 COPY --from=build /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=build /app/node_modules/dotenv ./node_modules/dotenv
+# …and the rest of what the CLI loads: @prisma/config's loader stack (effect,
+# c12 and friends). Without these the boot migration dies on
+# `Cannot find module 'effect'` and the database silently drifts behind the code.
+COPY --from=build /migrator-node-modules ./node_modules
 COPY --from=build /app/docker-entrypoint.sh ./docker-entrypoint.sh
 
 # Writable upload dir for STORAGE_PROVIDER=local (staging free tier). Ephemeral —
@@ -50,7 +59,7 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
   CMD node -e "fetch('http://127.0.0.1:'+ (process.env.PORT||3000) +'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
-# The entrypoint optionally runs `prisma migrate deploy` first (set
-# RUN_MIGRATIONS_ON_START=1 on hosts without a release hook), then execs CMD.
+# The entrypoint applies pending migrations, then execs CMD. See the script for
+# why that happens here rather than in a release hook.
 ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["node", "server.js"]

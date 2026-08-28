@@ -24,8 +24,12 @@
 #   2. In Render: New → Blueprint → point at this repo. It reads this file.
 #   3. Fill the `sync: false` secrets when prompted (AUTH_SECRET, DATABASE_URL,
 #      METRICS_TOKEN). Generate secrets with:  openssl rand -base64 48
-#   4. First deploy runs migrations on boot (RUN_MIGRATIONS_ON_START=1).
-#   5. Seed once from the Render Shell (see runbook): `npm run db:seed` then
+#   4. Every deploy applies pending migrations on boot. The free tier has no
+#      Shell and no pre-deploy hook, so the container is the only place they can
+#      run; docker-entrypoint.sh does it before starting the server. Nothing to
+#      configure. If you see a stale RUN_MIGRATIONS_ON_START on the service, it
+#      is from an older revision and is ignored — delete it.
+#   5. Seed once (see runbook): `npm run db:seed` then
 #      `APP_ENV=staging SEED_STAGING=1 npm run db:seed:staging`.
 
 services:
@@ -44,8 +48,6 @@ services:
         value: staging
       - key: APP_URL
         value: https://lunova-staging.onrender.com   # edit if Render assigns another host
-      - key: RUN_MIGRATIONS_ON_START
-        value: "1"
       # Uploads live on the container's ephemeral disk until an R2 bucket
       # exists — they vanish on every redeploy, which is why seeded persona
       # photos 404 after a deploy. To switch (see docs/PROVIDERS.md):

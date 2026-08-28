@@ -12,7 +12,12 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["src/**/*.{test,spec}.ts", "tests/unit/**/*.{test,spec}.ts"],
+    include: [
+      "src/**/*.{test,spec}.ts",
+      "tests/unit/**/*.{test,spec}.ts",
+      // Deployment-shape checks live next to the scripts they guard.
+      "scripts/**/*.{test,spec}.ts",
+    ],
     setupFiles: ["tests/setup.ts"],
     // The *.integration.test.ts suites all share one Postgres database, so they
     // must not run in parallel with each other. Pure unit tests are unaffected
