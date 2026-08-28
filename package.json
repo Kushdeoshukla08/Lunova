@@ -22,7 +22,8 @@
     "pg:status": "node scripts/pg.mjs status",
     "verify:onboarding": "tsx scripts/verify-onboarding.ts",
     "test:db": "RUN_DB_TESTS=1 vitest run",
-    "db:migrate:deploy": "prisma migrate deploy"
+    "db:migrate:deploy": "prisma migrate deploy",
+    "diagnose:discovery": "tsx scripts/diagnose-discovery.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1120.0",
