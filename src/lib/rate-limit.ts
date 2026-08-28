@@ -60,6 +60,8 @@ export const RATE_RULES = {
   verifyCode: { limit: 8, windowMs: 15 * 60 * 1000 },
   resendCode: { limit: 4, windowMs: 60 * 60 * 1000 },
   likes: { limit: 200, windowMs: 24 * 60 * 60 * 1000 },
+  /** Burst guard on top of the daily cap — stops rapid mass-liking scripts. */
+  likesBurst: { limit: 40, windowMs: 60 * 60 * 1000 },
   messages: { limit: 120, windowMs: 60 * 60 * 1000 },
   reports: { limit: 20, windowMs: 24 * 60 * 60 * 1000 },
 } satisfies Record<string, RateRule>;

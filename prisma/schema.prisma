@@ -164,6 +164,7 @@ enum SafetyEventType {
   MODERATION_ACTION
   BLOCK_RECEIVED
   APPEAL_SUBMITTED
+  CONTENT_FLAGGED
 }
 
 enum SafetySeverity {

@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "SafetyEventType" ADD VALUE 'CONTENT_FLAGGED';

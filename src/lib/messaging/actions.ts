@@ -8,6 +8,16 @@ import { moderateText } from "@/lib/moderation/provider";
 import { notify } from "@/lib/notifications/service";
 import { realtime } from "@/lib/realtime/provider";
 import { messageSchema } from "@/lib/validation/safety";
+import { isBlockedEitherWay } from "@/lib/safety/service";
+import { recordSafetyEvent } from "@/lib/safety/events";
+import { metrics } from "@/lib/observability/metrics";
+
+/**
+ * How many consecutive un-answered messages one person may send before we stop
+ * them. A real opener is a line or two; a dozen with zero reply is someone
+ * hammering a stranger who isn't responding.
+ */
+const UNANSWERED_LIMIT = 12;
 
 export type SendResult =
   | { ok: true; id: string }
@@ -44,6 +54,42 @@ export async function sendMessageAction(
     return { ok: false, error: "This conversation has ended." };
   }
   const otherId = match.userAId === user.id ? match.userBId : match.userAId;
+
+  // Defence in depth: a block normally closes the match, but never rely on a
+  // single mechanism for a safety-critical check.
+  if (await isBlockedEitherWay(user.id, otherId)) {
+    return { ok: false, error: "This conversation isn't available." };
+  }
+
+  // One-sided flood guard: count this sender's messages since the other
+  // person's last reply (or the start of the thread).
+  const lastFromOther = await db.message.findFirst({
+    where: { conversationId, senderId: otherId },
+    orderBy: { createdAt: "desc" },
+    select: { createdAt: true },
+  });
+  const unanswered = await db.message.count({
+    where: {
+      conversationId,
+      senderId: user.id,
+      deletedAt: null,
+      ...(lastFromOther ? { createdAt: { gt: lastFromOther.createdAt } } : {}),
+    },
+  });
+  if (unanswered >= UNANSWERED_LIMIT) {
+    await recordSafetyEvent({
+      userId: user.id,
+      type: "MESSAGE_SPAM_SUSPECTED",
+      severity: "LOW",
+      source: "matching",
+      metadata: { conversationId, unanswered },
+    });
+    metrics.increment("lunova_message_flood_blocked_total", {}, "One-sided message floods stopped");
+    return {
+      ok: false,
+      error: "Give them a chance to reply before sending more.",
+    };
+  }
 
   const verdict = await moderateText(body, "message");
   if (verdict.action === "reject") {

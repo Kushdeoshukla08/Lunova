@@ -172,11 +172,26 @@ export async function getConversation(
   if (!convo) return null;
   const { match } = convo;
   if (match.userAId !== userId && match.userBId !== userId) return null;
-  // If this connection ended because one side blocked the other, the blocked
-  // party loses read access too — they can't keep re-opening the thread.
-  if (match.closeReason === "BLOCKED" && match.closedById !== userId) return null;
 
   const otherId = otherIdOf(match, userId);
+  // The person who was BLOCKED loses read access — they can't keep re-opening
+  // the thread. The blocker keeps it (they may need it to file a report).
+  // Check the block row's direction, not just the match close reason, so an
+  // unmatch-then-block still hides the thread from the blocked party.
+  const blockRow = await db.block.findFirst({
+    where: {
+      OR: [
+        { blockerId: userId, blockedId: otherId },
+        { blockerId: otherId, blockedId: userId },
+      ],
+    },
+    select: { blockerId: true },
+  });
+  if (blockRow) {
+    if (blockRow.blockerId !== userId) return null;
+  } else if (match.closeReason === "BLOCKED" && match.closedById !== userId) {
+    return null;
+  }
   const other = await db.user.findUnique({
     where: { id: otherId },
     select: {

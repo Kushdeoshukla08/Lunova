@@ -12,6 +12,7 @@ import {
 } from "@/lib/providers/storage";
 import { geocode } from "@/lib/providers/geocode";
 import { moderateImage } from "@/lib/moderation/provider";
+import { screenProfileText } from "@/lib/profile/moderation";
 import {
   isOnboardingSlug,
   nextStep,
@@ -155,7 +156,7 @@ export async function saveStepAction(
       result = await savePhotosStep(profile.id);
       break;
     case "basics":
-      result = await saveBasicsStep(profile.id, formData);
+      result = await saveBasicsStep(user.id, profile.id, formData);
       break;
     case "location":
       result = await saveLocationStep(profile.id, formData);
@@ -167,10 +168,10 @@ export async function saveStepAction(
       result = await saveInterestsStep(profile.id, formData);
       break;
     case "music":
-      result = await saveMusicStep(profile.id, formData);
+      result = await saveMusicStep(user.id, profile.id, formData);
       break;
     case "activity":
-      result = await saveActivityStep(profile.id, formData);
+      result = await saveActivityStep(user.id, profile.id, formData);
       break;
     case "preferences":
       result = await savePreferencesStep(user.id, formData);
@@ -226,7 +227,11 @@ async function savePhotosStep(profileId: string): Promise<StepState> {
   return {};
 }
 
-async function saveBasicsStep(profileId: string, fd: FormData): Promise<StepState> {
+async function saveBasicsStep(
+  userId: string,
+  profileId: string,
+  fd: FormData,
+): Promise<StepState> {
   const parsed = basicsSchema.safeParse({
     displayName: fd.get("displayName"),
     gender: fd.get("gender"),
@@ -237,6 +242,13 @@ async function saveBasicsStep(profileId: string, fd: FormData): Promise<StepStat
   });
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
   const d = parsed.data;
+
+  const screen = await screenProfileText(userId, [
+    { name: "displayName", value: d.displayName },
+    { name: "bio", value: d.bio },
+    { name: "pronouns", value: d.pronouns },
+  ]);
+  if (!screen.ok) return { fieldErrors: { [screen.field]: [screen.error] } };
   await db.profile.update({
     where: { id: profileId },
     data: {
@@ -303,7 +315,11 @@ async function saveInterestsStep(profileId: string, fd: FormData): Promise<StepS
   return {};
 }
 
-async function saveMusicStep(profileId: string, fd: FormData): Promise<StepState> {
+async function saveMusicStep(
+  userId: string,
+  profileId: string,
+  fd: FormData,
+): Promise<StepState> {
   const parsed = musicSchema.safeParse({
     listeningMood: fd.get("listeningMood") ?? "",
     topGenres: fd.getAll("topGenres"),
@@ -311,6 +327,11 @@ async function saveMusicStep(profileId: string, fd: FormData): Promise<StepState
   });
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
   const { listeningMood, topGenres, artists } = parsed.data;
+
+  const screen = await screenProfileText(userId, [
+    { name: "listeningMood", value: listeningMood },
+  ]);
+  if (!screen.ok) return { fieldErrors: { [screen.field]: [screen.error] } };
 
   const music = await db.musicProfile.upsert({
     where: { profileId },
@@ -338,7 +359,11 @@ async function saveMusicStep(profileId: string, fd: FormData): Promise<StepState
   return {};
 }
 
-async function saveActivityStep(profileId: string, fd: FormData): Promise<StepState> {
+async function saveActivityStep(
+  userId: string,
+  profileId: string,
+  fd: FormData,
+): Promise<StepState> {
   const parsed = activitySchema.safeParse({
     preferredLifestyle: fd.get("preferredLifestyle") ?? "",
     activeDaysPerWeek: fd.get("activeDaysPerWeek") ?? "",
@@ -346,6 +371,11 @@ async function saveActivityStep(profileId: string, fd: FormData): Promise<StepSt
   });
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
   const { preferredLifestyle, activeDaysPerWeek, activityTypes } = parsed.data;
+
+  const screen = await screenProfileText(userId, [
+    { name: "preferredLifestyle", value: preferredLifestyle },
+  ]);
+  if (!screen.ok) return { fieldErrors: { [screen.field]: [screen.error] } };
 
   const activity = await db.activityProfile.upsert({
     where: { profileId },

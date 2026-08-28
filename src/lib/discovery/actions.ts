@@ -53,9 +53,12 @@ export async function likeAction(
   if (!parsed.success) return { ok: false, error: "Invalid request." };
   const { targetUserId, comment, elementRef } = parsed.data;
 
-  const limit = await rateLimiter.check(`likes:${user.id}`, RATE_RULES.likes);
-  if (!limit.ok) {
-    return { ok: false, error: "You've been very active today — take a breather." };
+  const [daily, burst] = await Promise.all([
+    rateLimiter.check(`likes:${user.id}`, RATE_RULES.likes),
+    rateLimiter.check(`likes:burst:${user.id}`, RATE_RULES.likesBurst),
+  ]);
+  if (!daily.ok || !burst.ok) {
+    return { ok: false, error: "You've been very active — take a breather." };
   }
 
   const problem = await assertInteractable(user.id, targetUserId);
