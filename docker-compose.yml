@@ -16,7 +16,7 @@ services:
 
   migrate:
     build: .
-    command: ["node_modules/.bin/prisma", "migrate", "deploy"]
+    command: ["node", "node_modules/prisma/build/index.js", "migrate", "deploy"]
     environment:
       DATABASE_URL: postgresql://lunova:lunova@db:5432/lunova?schema=public
     depends_on:

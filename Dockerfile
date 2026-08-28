@@ -28,9 +28,13 @@ COPY --from=build /app/public ./public
 COPY --from=build /app/src/generated ./src/generated
 COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/prisma.config.ts ./prisma.config.ts
+# Prisma CLI for `migrate deploy` on boot. Copy the packages whole and invoke
+# node_modules/prisma/build/index.js directly (the .bin/prisma shim is a symlink
+# Docker flattens into a broken copy). `dotenv` is imported by prisma.config.ts
+# and is NOT traced into the standalone bundle, so bring it along.
 COPY --from=build /app/node_modules/prisma ./node_modules/prisma
 COPY --from=build /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=build /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
+COPY --from=build /app/node_modules/dotenv ./node_modules/dotenv
 COPY --from=build /app/docker-entrypoint.sh ./docker-entrypoint.sh
 
 # Writable upload dir for STORAGE_PROVIDER=local (staging free tier). Ephemeral —
