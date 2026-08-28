@@ -8,7 +8,7 @@ import { hashPassword, verifyPasswordConstantTime } from "./password";
 import { createSession, destroySession } from "./session";
 import { getCurrentUser } from "./dal";
 import { generateNumericCode, hashToken, MAX_OTP_ATTEMPTS } from "./tokens";
-import { emailProvider } from "@/lib/providers/email";
+import { sendEmailBestEffort } from "@/lib/providers/email";
 import {
   recordLoginAttempt,
   recordSafetyEvent,
@@ -35,7 +35,7 @@ async function clientIp(): Promise<string> {
   );
 }
 
-async function issueEmailCode(userId: string, email: string): Promise<void> {
+async function issueEmailCode(userId: string, email: string): Promise<{ ok: boolean }> {
   const code = generateNumericCode(6);
   await db.verificationToken.create({
     data: {
@@ -46,7 +46,10 @@ async function issueEmailCode(userId: string, email: string): Promise<void> {
       expiresAt: new Date(Date.now() + CODE_TTL_MS),
     },
   });
-  await emailProvider.send({
+  // Best-effort: an email-provider outage must not fail signup. The code row
+  // exists; the user can hit "resend". `resendVerificationAction` surfaces a
+  // hard failure to the user.
+  return sendEmailBestEffort({
     to: email,
     subject: "Your Lunova verification code",
     text: `Welcome to Lunova.\n\nYour verification code is ${code}\nIt expires in 15 minutes.\n\nIf you didn't create an account, you can ignore this email.`,
@@ -213,7 +216,10 @@ export async function resendVerificationAction(): Promise<AuthFormState> {
   if (!limit.ok) {
     return { error: "You've asked for a few codes already — try again in an hour." };
   }
-  await issueEmailCode(user.id, user.email);
+  const sent = await issueEmailCode(user.id, user.email);
+  if (!sent.ok) {
+    return { error: "We couldn't send the email just now. Try again in a moment." };
+  }
   return { notice: "New code sent. Check your inbox." };
 }
 

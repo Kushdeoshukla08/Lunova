@@ -1,9 +1,10 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { generateNumericCode, hashToken, MAX_OTP_ATTEMPTS } from "@/lib/auth/tokens";
-import { smsProvider } from "@/lib/providers/sms";
+import { sendSmsBestEffort } from "@/lib/providers/sms";
 import { storage } from "@/lib/providers/storage";
 import { idv } from "./provider";
+import { isRetryableHttp, withRetry } from "@/lib/providers/resilience";
 import { recordSafetyEvent } from "@/lib/safety/events";
 import { notify } from "@/lib/notifications/service";
 
@@ -44,7 +45,10 @@ export async function getVerificationStatus(userId: string): Promise<Verificatio
 
 // ─── Phone ───────────────────────────────────────────────────────────────────
 
-export async function startPhoneVerification(userId: string, phoneE164: string) {
+export async function startPhoneVerification(
+  userId: string,
+  phoneE164: string,
+): Promise<{ ok: boolean }> {
   // store the (unverified) phone; uniqueness is enforced by the schema
   await db.user.update({ where: { id: userId }, data: { phone: phoneE164 } });
   const code = generateNumericCode(6);
@@ -57,7 +61,7 @@ export async function startPhoneVerification(userId: string, phoneE164: string) 
       expiresAt: new Date(Date.now() + CODE_TTL_MS),
     },
   });
-  await smsProvider.send({
+  return sendSmsBestEffort({
     to: phoneE164,
     text: `Your Lunova code is ${code}. It expires in 10 minutes.`,
   });
@@ -119,7 +123,18 @@ export async function submitPhotoVerification(
     select: { id: true },
   });
 
-  const result = await idv.submitPhoto({ userId, selfie: bytes, contentType });
+  // If the IDV vendor is unreachable, leave the check PENDING for manual review
+  // rather than failing the user's submission.
+  let result: Awaited<ReturnType<typeof idv.submitPhoto>>;
+  try {
+    result = await withRetry(
+      () => idv.submitPhoto({ userId, selfie: bytes, contentType }),
+      { label: `idv.submitPhoto(${idv.name})`, retries: 1, timeoutMs: 12_000, retryable: isRetryableHttp },
+    );
+  } catch (err) {
+    console.error("[idv] submitPhoto failed — leaving check PENDING:", err);
+    return { status: "pending" };
+  }
 
   if (result.outcome === "pending") {
     return { status: "pending" };

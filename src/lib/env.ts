@@ -20,8 +20,14 @@ const schema = z.object({
 
   MUSIC_PROVIDER: z.enum(["internal", "spotify"]).default("internal"),
   MODERATION_PROVIDER: z.string().default("heuristic"),
+  MODERATION_API_KEY: z.string().optional(),
   SMS_PROVIDER: z.string().default("console"),
+  TWILIO_ACCOUNT_SID: z.string().optional(),
+  TWILIO_AUTH_TOKEN: z.string().optional(),
+  TWILIO_FROM: z.string().optional(),
   EMAIL_PROVIDER: z.string().default("console"),
+  EMAIL_FROM: z.string().default("Lunova <hello@lunova.local>"),
+  RESEND_API_KEY: z.string().optional(),
   STORAGE_PROVIDER: z.enum(["local", "s3"]).default("local"),
   STORAGE_LOCAL_DIR: z.string().default(".uploads"),
 

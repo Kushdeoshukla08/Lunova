@@ -41,8 +41,11 @@ export async function startPhoneVerificationAction(
   });
   if (taken) return { ok: false, error: "That number is already in use." };
 
-  await startPhoneVerification(user.id, parsed.data);
+  const sent = await startPhoneVerification(user.id, parsed.data);
   revalidatePath("/verify/phone");
+  if (!sent.ok) {
+    return { ok: false, error: "We couldn't send the text just now. Try again in a moment." };
+  }
   return { ok: true, note: "Code sent. (Dev: check the server console.)" };
 }
 

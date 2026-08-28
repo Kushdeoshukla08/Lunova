@@ -1,5 +1,6 @@
 import "server-only";
 import { env } from "@/lib/env";
+import { isRetryableHttp, withRetry } from "@/lib/providers/resilience";
 
 export type ModerationAction = "allow" | "review" | "reject";
 
@@ -57,8 +58,30 @@ const globalForMod = globalThis as unknown as { moderation?: ModerationProvider 
 export const moderation: ModerationProvider =
   globalForMod.moderation ?? (globalForMod.moderation = build());
 
-export const moderateImage = (b: Buffer, t: string) => moderation.image(b, t);
-export const moderateText = (
+const RETRY = { retries: 1, timeoutMs: 6_000, retryable: isRetryableHttp } as const;
+
+/**
+ * Fail-safe: if the moderation vendor is down, images are held for review
+ * (never auto-approved) and text is allowed but flagged for a later sweep —
+ * an outage must not block every message and photo.
+ */
+export async function moderateImage(b: Buffer, t: string): Promise<ModerationVerdict> {
+  try {
+    return await withRetry(() => moderation.image(b, t), { label: "moderation.image", ...RETRY });
+  } catch (err) {
+    console.error("[moderation] image check failed — holding for review:", err);
+    return { action: "review", labels: { error: "provider_unavailable" } };
+  }
+}
+
+export async function moderateText(
   v: string,
   ctx: "bio" | "prompt" | "message" | "report",
-) => moderation.text(v, ctx);
+): Promise<ModerationVerdict> {
+  try {
+    return await withRetry(() => moderation.text(v, ctx), { label: "moderation.text", ...RETRY });
+  } catch (err) {
+    console.error("[moderation] text check failed — allowing + flagging:", err);
+    return { action: "allow", labels: { error: "provider_unavailable", deferred: true } };
+  }
+}

@@ -96,11 +96,12 @@ d("moderation + verification (DB)", () => {
 
   it("confirmPhone sets phoneVerifiedAt + trust.phoneVerified on the right code", async () => {
     const { startPhoneVerification, confirmPhone } = await import("@/lib/verification/service");
-    // capture the code by spying on the sms provider
+    // capture the code by spying on the best-effort SMS send used by the service
     const sms = await import("@/lib/providers/sms");
     let sent = "";
-    const spy = vi.spyOn(sms.smsProvider, "send").mockImplementation(async ({ text }) => {
+    const spy = vi.spyOn(sms, "sendSmsBestEffort").mockImplementation(async ({ text }) => {
       sent = text.match(/\b(\d{6})\b/)?.[1] ?? "";
+      return { ok: true };
     });
 
     await startPhoneVerification(adminId, "+14155550123");
