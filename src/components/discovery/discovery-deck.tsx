@@ -99,8 +99,12 @@ export function DiscoveryDeck({ profiles }: { profiles: DiscoveryProfile[] }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between text-xs text-ink-faint">
-        <span>{position} of {total}</span>
+      <div
+        className="flex items-center justify-between text-xs text-ink-faint"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        <span>Person {position} of {total}</span>
         {queue.length > 1 && <span>{queue.length - 1} more</span>}
       </div>
 

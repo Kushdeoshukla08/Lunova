@@ -32,6 +32,8 @@ export function Modal({
 }: ModalProps) {
   const ref = React.useRef<HTMLDialogElement>(null);
   const headingId = React.useId();
+  const descId = React.useId();
+  const labelledBy = title && !bare ? headingId : undefined;
 
   React.useEffect(() => {
     const el = ref.current;
@@ -43,7 +45,8 @@ export function Modal({
   return (
     <dialog
       ref={ref}
-      aria-labelledby={title ? headingId : undefined}
+      aria-labelledby={labelledBy}
+      aria-describedby={description && !bare ? descId : undefined}
       onCancel={(e) => {
         e.preventDefault();
         onClose();
@@ -90,7 +93,9 @@ export function Modal({
                   </h2>
                 )}
                 {description && (
-                  <p className="mt-0.5 text-sm text-ink-soft text-pretty">{description}</p>
+                  <p id={descId} className="mt-0.5 text-sm text-ink-soft text-pretty">
+                    {description}
+                  </p>
                 )}
               </div>
               <button
