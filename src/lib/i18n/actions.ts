@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { isLocale, LOCALE_COOKIE, TIMEZONE_COOKIE } from "./config";
+import { isProdLike } from "@/lib/env";
 
 const ONE_YEAR = 60 * 60 * 24 * 365;
 
@@ -24,6 +25,7 @@ export async function setLocaleAction(
   jar.set(LOCALE_COOKIE, value, {
     maxAge: ONE_YEAR,
     sameSite: "lax",
+    secure: isProdLike,
     path: "/",
   });
   revalidatePath("/", "layout");
@@ -46,5 +48,5 @@ export async function setTimeZoneAction(tz: string): Promise<void> {
   }
   const jar = await cookies();
   if (jar.get(TIMEZONE_COOKIE)?.value === tz) return;
-  jar.set(TIMEZONE_COOKIE, tz, { maxAge: ONE_YEAR, sameSite: "lax", path: "/" });
+  jar.set(TIMEZONE_COOKIE, tz, { maxAge: ONE_YEAR, sameSite: "lax", secure: isProdLike, path: "/" });
 }

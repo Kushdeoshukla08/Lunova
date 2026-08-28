@@ -2,7 +2,7 @@ import "server-only";
 import { cookies, headers } from "next/headers";
 import { createHash } from "node:crypto";
 import { db } from "@/lib/db";
-import { env } from "@/lib/env";
+import { env, isProdLike } from "@/lib/env";
 import { generateToken, hashToken } from "./tokens";
 
 const COOKIE = "lunova_session";
@@ -14,7 +14,9 @@ function cookieOptions(expires: Date) {
   return {
     httpOnly: true,
     sameSite: "lax" as const,
-    secure: env.NODE_ENV === "production",
+    // Secure on any real deployment (staging + production are HTTPS); plain
+    // http://localhost dev is the only exception.
+    secure: isProdLike,
     path: "/",
     expires,
   };

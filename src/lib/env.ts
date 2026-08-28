@@ -8,6 +8,14 @@ import { z } from "zod";
  */
 const schema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  /**
+   * The deployment tier, independent of NODE_ENV (staging also builds with
+   * NODE_ENV=production). Drives cookie security, log verbosity, seed guards and
+   * the visible environment banner. Keep dev/staging/production fully separated:
+   * separate databases, secrets, storage buckets and OAuth apps — see
+   * docs/ENVIRONMENTS.md.
+   */
+  APP_ENV: z.enum(["development", "staging", "production"]).default("development"),
   APP_URL: z.url().default("http://localhost:3000"),
   AUTH_SECRET: z.string().min(32, "AUTH_SECRET must be at least 32 characters"),
 
@@ -61,3 +69,9 @@ function load() {
 
 export const env = load();
 export type Env = typeof env;
+
+/** True for staging and production — anything served over real HTTPS to users. */
+export const isProdLike = env.APP_ENV !== "development";
+
+/** True only for the real production tier. */
+export const isProduction = env.APP_ENV === "production";
