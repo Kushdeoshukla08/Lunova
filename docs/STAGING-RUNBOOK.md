@@ -1,79 +1,94 @@
 # Staging runbook
 
-Get Lunova onto a real HTTPS URL with the **simplest** production-capable
-stack. This is for validating the product, not scaling it.
+Get Lunova onto a real HTTPS URL for **$0**, for moderated user testing
+(docs/USER-TESTING.md). Not built for always-on traffic.
 
-## Architecture (Option A from docs/DEPLOYMENT.md)
+## The free stack (chosen for zero cost)
 
-```
-        ┌─────────────────────────────┐
- users →│  one always-on container     │→ managed Postgres  (Neon / Supabase / RDS)
- HTTPS  │  Next.js standalone server   │→ object storage    (Cloudflare R2 / S3)
-        │  (SSE + in-process realtime) │→ Redis  (Upstash)  — optional for 1 instance
-        └─────────────────────────────┘
-```
-
-One container because SSE + the in-process realtime fan-out fight the
-serverless function model (docs/DEPLOYMENT.md). Redis is only needed once there
-is more than one instance.
-
-## Pieces to provision (all have free / cheap tiers)
-
-| Piece | Suggested | Gives you |
+| Piece | Choice | Notes |
 | --- | --- | --- |
-| App host | **Fly.io** (`fly launch` reads the `Dockerfile`), or Render / Railway | the container + TLS + a `*.fly.dev` URL |
-| Postgres | **Neon** (branch = `staging`) or Supabase | `DATABASE_URL` with `sslmode=require` |
-| Object storage | **Cloudflare R2** (S3-compatible, no egress fees) | `S3_*` vars + a public `S3_PUBLIC_URL` |
-| Redis | **Upstash** (skip until >1 instance) | `REDIS_URL` |
-| Email | **Resend** (staging API key, staging domain) | verification links that actually arrive |
-| SMS | **Twilio** (test credentials, or a low-cap subaccount) | phone verification |
-| Errors | **Sentry** (a separate `staging` project) — optional | `SENTRY_DSN` |
+| App host | **Render**, free web service, Docker | `*.onrender.com` + HTTPS. **Spins down after ~15 min idle**, cold-starts in ~30–60 s. Fine for scheduled sessions. Config: `render.yaml`. |
+| Database | **Neon**, free tier | 0.5 GB, sleeps after 5 min, wakes in ~0.5 s. Reachable from anywhere via its connection string. |
+| Object storage | none — `STORAGE_PROVIDER=local` | The free container disk is **ephemeral**: uploads vanish on redeploy. The staging seed regenerates persona photos; testers' uploads are disposable. |
+| Email | none — `EMAIL_PROVIDER=console` | During a moderated session the facilitator reads the 6-digit code from the Render logs. |
+| SMS | none — `SMS_PROVIDER=console` | Phone verification is optional; testers skip it. |
+| Redis | none | Single instance ⇒ in-process realtime + in-memory rate limiting. |
+| Errors | none | Structured logs only (Render captures stdout). |
 
-Create a **separate Spotify app** for staging later, with redirect URI
-`https://<staging-host>/api/music/spotify/callback`.
+Everything is behind the provider abstractions (docs/PROVIDERS.md), so any of
+these can later be swapped for a real vendor by setting env vars — no code change.
 
-## First deploy
+## One-time setup
 
-1. **Repo → host.** Point the host at the GitHub repo, `main` branch. It builds
-   the `Dockerfile` (multi-stage, non-root, `output: "standalone"`).
-2. **Env.** Set every variable from `.env.staging.example` in the host's secret
-   manager. Generate `AUTH_SECRET` fresh: `openssl rand -base64 48`. Set
-   `APP_ENV=staging`, `NODE_ENV=production`, `APP_URL=https://<staging-host>`.
-   Set `METRICS_TOKEN` to a random string.
-3. **Database.** The container runs `prisma migrate deploy` as a release step
-   (already in the `Dockerfile` flow / `docker-compose.yml` `migrate` service).
-   If your host has no release-phase hook, run once manually:
-   `DATABASE_URL=… npx prisma migrate deploy`.
-4. **Reference data + personas.**
-   ```
-   DATABASE_URL=…  npm run db:seed                       # prompts, interests, activity types
-   DATABASE_URL=…  APP_ENV=staging SEED_STAGING=1  npm run db:seed:staging
-   ```
-   The staging seed refuses to run without both `APP_ENV=staging` and
-   `SEED_STAGING=1`, so it can never touch production.
-5. **Storage.** Create the bucket, set it non-public-listable, put the CDN /
-   public base in `S3_PUBLIC_URL`, and confirm `STORAGE_PROVIDER=s3`.
-6. **Smoke test.** `curl -I https://<staging-host>/api/health` → 200 `{ok:true}`.
-   Then walk the core journey in a browser: sign up (check the email arrives),
-   onboard, land in a populated Discovery feed, like a persona, open the
-   conversation.
-7. **Security pass.** Work through `docs/STAGING-SECURITY.md`. Run
-   `curl -I` for headers; open DevTools and confirm `Secure`+`HttpOnly` on the
-   session cookie and zero CSP violations across the journey.
+### 1. Neon (database)
+1. neon.tech → new project (free). Region near your testers.
+2. Copy the **pooled** connection string (has `-pooler` in the host). It already
+   includes `?sslmode=require`.
+
+### 2. Seed the database (from your laptop, not Render)
+The runtime image doesn't carry `tsx`, so run the seeds locally against Neon:
+```bash
+export DATABASE_URL='postgresql://…-pooler…/neondb?sslmode=require'
+npx prisma migrate deploy          # create the schema
+npm run db:seed                    # prompts, interests, activity types
+APP_ENV=staging SEED_STAGING=1 npm run db:seed:staging   # the 14 demo personas
+```
+`db:seed:staging` refuses to run without both `APP_ENV=staging` and
+`SEED_STAGING=1`, so it can never touch another database by accident.
+
+### 3. Render (the app)
+1. render.com → **New → Blueprint** → connect this GitHub repo. It reads
+   `render.yaml` and proposes one web service, `lunova-staging`.
+2. When prompted, fill the three secrets (the rest are in `render.yaml`):
+   - `AUTH_SECRET` — `openssl rand -base64 48`
+   - `DATABASE_URL` — the Neon pooled string from step 1
+   - `METRICS_TOKEN` — `openssl rand -base64 24` (guards `/api/metrics`)
+3. Deploy. `RUN_MIGRATIONS_ON_START=1` makes the container run
+   `prisma migrate deploy` on boot (idempotent), so it's a no-op after step 2.
+4. Note the assigned URL. If it isn't `https://lunova-staging.onrender.com`,
+   update `APP_URL` in the Render env to match, and redeploy (a wrong `APP_URL`
+   breaks OG links and the Server-Action origin check).
+
+### 4. Smoke test
+```bash
+curl -s https://<your-host>/api/health         # {"ok":true,"db":"up",...}
+```
+Then in a browser: sign up → (read the code from Render logs) → verify → onboard
+→ land in a populated Discovery feed → like a persona → open the conversation.
+
+### 5. Security pass
+Work through **docs/STAGING-SECURITY.md**. Quick checks:
+```bash
+curl -sI https://<your-host>/           # CSP, HSTS, X-Frame-Options, COOP present
+curl -s  https://<your-host>/api/metrics            # 404 (no token)
+curl -s https://<your-host>/api/metrics -H "Authorization: Bearer $METRICS_TOKEN" | head
+```
+In DevTools → Application → Cookies: `lunova_session` is `Secure` + `HttpOnly`.
+Walk the journey with the console open — zero CSP violations.
 
 ## Ongoing
 
-- **Staging tracks `main`.** Every merge that passes CI redeploys staging.
-- **Reseed freely.** `SEED_STAGING_RESET=1 npm run db:seed:staging` wipes and
-  rebuilds the personas. Nothing in staging is real.
-- **Metrics.** Point a scraper at `https://<staging-host>/api/metrics` with the
-  bearer token, or just `curl` it. `/admin/metrics` shows product health.
-- **Promotion to production** is a separate host with its own everything, fed by
-  tagged releases (docs/ENVIRONMENTS.md). Do not reuse a single staging value.
+- **Push to `main` → Render redeploys** (`autoDeploy: true`).
+- **Reseed anytime** from your laptop:
+  `DATABASE_URL=… SEED_STAGING_RESET=1 APP_ENV=staging SEED_STAGING=1 npm run db:seed:staging`.
+- **Read product health** at `https://<your-host>/admin/metrics` (sign in as an
+  ADMIN — create one by setting `role='ADMIN'` on your own row in Neon, or add a
+  seeded admin).
+- **Cold start**: hit the URL ~1 min before a session so the first tester
+  doesn't wait on the spin-up.
+
+## Upgrading later (still cheap, not free)
+
+- Persistent storage: Cloudflare R2 free tier (10 GB, no egress) →
+  `STORAGE_PROVIDER=s3` + `S3_*`.
+- Real email: Resend free tier (100/day) + a sending subdomain →
+  `EMAIL_PROVIDER=resend` + `RESEND_API_KEY`.
+- Always-on app: Render Starter ($7/mo) removes the spin-down.
+- Production is a **separate** Render service + Neon project, fed by tagged
+  releases (docs/ENVIRONMENTS.md). Never reuse a staging secret.
 
 ## Rollback
 
-The host keeps previous images — roll back to the last good deploy from its
-dashboard. Migrations are additive (`CONTENT_FLAGGED` enum add, nullable
-columns); if a migration is bad, restore the Postgres branch/snapshot and
-redeploy the previous image.
+Render keeps prior deploys — "Rollback" in the dashboard. Migrations so far are
+additive (an enum value, nullable columns); if one is bad, restore the Neon
+branch/snapshot and roll the Render deploy back.

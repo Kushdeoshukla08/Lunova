@@ -31,11 +31,18 @@ COPY --from=build /app/prisma.config.ts ./prisma.config.ts
 COPY --from=build /app/node_modules/prisma ./node_modules/prisma
 COPY --from=build /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=build /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
+COPY --from=build /app/docker-entrypoint.sh ./docker-entrypoint.sh
+
+# Writable upload dir for STORAGE_PROVIDER=local (staging free tier). Ephemeral —
+# wiped on redeploy; that's expected. Production uses S3/R2 and never touches this.
+RUN mkdir -p /app/.uploads && chown -R lunova:lunova /app/.uploads
 
 USER lunova
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
   CMD node -e "fetch('http://127.0.0.1:'+ (process.env.PORT||3000) +'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
-# Run migrations as a release step in your platform, NOT here. This just serves.
+# The entrypoint optionally runs `prisma migrate deploy` first (set
+# RUN_MIGRATIONS_ON_START=1 on hosts without a release hook), then execs CMD.
+ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["node", "server.js"]
