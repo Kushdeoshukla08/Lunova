@@ -28,7 +28,11 @@ WORKDIR /app
 # HOSTNAME to the pod name — Next would then listen on an address the router
 # can't reach, and every request 502s. PORT is overridden by the platform.
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
-RUN groupadd -r lunova && useradd -r -g lunova lunova
+# A home directory is not optional: the Prisma CLI writes a version-check cache
+# under $HOME/$XDG_CACHE_HOME, and a service user without one fails to migrate
+# in ways that never reproduce locally.
+RUN groupadd -r lunova && useradd -r -g lunova -m -d /home/lunova lunova
+ENV HOME=/home/lunova XDG_CACHE_HOME=/home/lunova/.cache
 
 # standalone server bundle + static assets + Prisma client + CLI (for migrate deploy)
 COPY --from=build /app/.next/standalone ./
@@ -52,7 +56,8 @@ COPY --from=build /app/docker-entrypoint.sh ./docker-entrypoint.sh
 
 # Writable upload dir for STORAGE_PROVIDER=local (staging free tier). Ephemeral —
 # wiped on redeploy; that's expected. Production uses S3/R2 and never touches this.
-RUN mkdir -p /app/.uploads && chown -R lunova:lunova /app/.uploads
+RUN mkdir -p /app/.uploads /home/lunova/.cache \
+ && chown -R lunova:lunova /app/.uploads /home/lunova
 
 USER lunova
 EXPOSE 3000

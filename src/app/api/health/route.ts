@@ -1,4 +1,4 @@
-import { readdir } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
@@ -37,7 +37,7 @@ export async function GET() {
 
   try {
     await db.$queryRaw`SELECT 1`;
-    const migrations = await migrationStatus();
+    const [migrations, boot] = await Promise.all([migrationStatus(), bootMigration()]);
     return Response.json(
       {
         ok: true,
@@ -45,6 +45,8 @@ export async function GET() {
         ms: Date.now() - started,
         ...base,
         migrations,
+        // null unless the container entrypoint ran; see bootMigration().
+        ...(boot ? { bootMigration: boot } : {}),
       },
       { headers: { "Cache-Control": "no-store" } },
     );
@@ -88,6 +90,34 @@ async function migrationStatus(): Promise<MigrationStatus | { error: string }> {
   } catch {
     // No _prisma_migrations table, or fs unavailable — report, don't crash.
     return { error: "unavailable" };
+  }
+}
+
+/**
+ * What the entrypoint's boot migration did, as written by docker-entrypoint.sh.
+ *
+ * On a host with no Shell and no log access, this is the only way to tell
+ * "the migration failed" from "the migration never ran" — which are very
+ * different problems (a broken image vs. an overridden container command).
+ * Absent in local dev and anywhere the entrypoint isn't used.
+ */
+async function bootMigration(): Promise<Record<string, unknown> | null> {
+  try {
+    // turbopackIgnore: the path is runtime state written by the entrypoint after
+    // the build. Without this the bundler traces the whole project into the
+    // standalone output "just in case".
+    const raw = await readFile(
+      /* turbopackIgnore: true */ process.env.MIGRATION_REPORT_PATH ||
+        "/tmp/lunova-migrate.json",
+      "utf8",
+    );
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    // Re-shape rather than spreading, so this can only ever expose these keys.
+    const { ran, exitCode, at, entrypoint, reason } = parsed as Record<string, unknown>;
+    return { ran, exitCode, at, entrypoint, ...(reason ? { reason } : {}) };
+  } catch {
+    return null;
   }
 }
 

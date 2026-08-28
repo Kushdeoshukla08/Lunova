@@ -5,7 +5,8 @@
  * secret value can ever appear in its body: not DATABASE_URL, the DB
  * username/password, AUTH_SECRET, METRICS_TOKEN, or any provider key.
  */
-import { readdirSync } from "node:fs";
+import { readdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -125,6 +126,87 @@ describe("GET /api/health — healthy", () => {
     expect(text).not.toContain("sslmode");
     // database field is exactly host + name, nothing else
     expect(Object.keys(body.database).sort()).toEqual(["host", "name"]);
+  });
+});
+
+describe("GET /api/health — boot migration report", () => {
+  // The container migrates itself on boot and writes what happened to a file.
+  // On a host with no Shell and no log access this is the only way to tell
+  // "the migration failed" from "the migration never ran".
+  const reportPath = join(tmpdir(), `lunova-migrate-test-${process.pid}.json`);
+  afterEach(() => {
+    rmSync(reportPath, { force: true });
+    delete process.env.MIGRATION_REPORT_PATH;
+  });
+
+  it("is absent when the entrypoint did not run (local dev)", async () => {
+    process.env.MIGRATION_REPORT_PATH = join(tmpdir(), "definitely-not-here.json");
+    mockEnv();
+    mockDb({ queryRaw: () => Promise.resolve([{ "?column?": 1 }]) });
+    const { body } = await callHealth();
+    expect(body.bootMigration).toBeUndefined();
+  });
+
+  it("surfaces a failed boot migration with its reason", async () => {
+    writeFileSync(
+      reportPath,
+      JSON.stringify({
+        ran: true,
+        exitCode: 1,
+        at: "2026-08-28T17:32:13Z",
+        entrypoint: "ran",
+        reason: "Error: P1001: Can't reach database server",
+      }),
+    );
+    process.env.MIGRATION_REPORT_PATH = reportPath;
+    mockEnv();
+    mockDb({ queryRaw: () => Promise.resolve([{ "?column?": 1 }]) });
+    const { body } = await callHealth();
+    expect(body.bootMigration).toEqual({
+      ran: true,
+      exitCode: 1,
+      at: "2026-08-28T17:32:13Z",
+      entrypoint: "ran",
+      reason: "Error: P1001: Can't reach database server",
+    });
+  });
+
+  it("exposes only known keys, whatever the file contains", async () => {
+    // The file is written by a shell script; treat it as untrusted input rather
+    // than spreading it into a public, unauthenticated response.
+    writeFileSync(
+      reportPath,
+      JSON.stringify({
+        ran: true,
+        exitCode: 0,
+        at: "2026-08-28T17:32:08Z",
+        entrypoint: "ran",
+        DATABASE_URL: `postgresql://u:${SECRETS.DB_PASSWORD}@h/db`,
+        AUTH_SECRET: SECRETS.AUTH_SECRET,
+      }),
+    );
+    process.env.MIGRATION_REPORT_PATH = reportPath;
+    mockEnv();
+    mockDb({ queryRaw: () => Promise.resolve([{ "?column?": 1 }]) });
+    const { body, text } = await callHealth();
+    expect(Object.keys(body.bootMigration).sort()).toEqual([
+      "at",
+      "entrypoint",
+      "exitCode",
+      "ran",
+    ]);
+    expect(text).not.toContain(SECRETS.DB_PASSWORD);
+    expect(text).not.toContain(SECRETS.AUTH_SECRET);
+  });
+
+  it("ignores a corrupt report rather than failing the probe", async () => {
+    writeFileSync(reportPath, "not json {{{");
+    process.env.MIGRATION_REPORT_PATH = reportPath;
+    mockEnv();
+    mockDb({ queryRaw: () => Promise.resolve([{ "?column?": 1 }]) });
+    const { res, body } = await callHealth();
+    expect(res.status).toBe(200);
+    expect(body.bootMigration).toBeUndefined();
   });
 });
 

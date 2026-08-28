@@ -61,7 +61,15 @@ d("the production image can run prisma migrate", () => {
   }, 120_000);
 
   afterAll(() => {
-    if (dir) rmSync(dir, { recursive: true, force: true });
+    // Best-effort. On Windows the CLI process can still hold a handle for a
+    // moment after exit (EBUSY), and failing to delete a temp directory is not
+    // a reason to fail the run — the OS reclaims it either way.
+    if (!dir) return;
+    try {
+      rmSync(dir, { recursive: true, force: true, maxRetries: 3, retryDelay: 200 });
+    } catch {
+      /* leave it to the OS */
+    }
   });
 
   it("resolves every module the CLI loads and reaches the database", () => {
