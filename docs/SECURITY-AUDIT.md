@@ -132,6 +132,19 @@ A byte-by-byte comparison returns as soon as it differs, leaking the token
 prefix through response timing.
 **Fix:** both sides are SHA-256'd and compared with `timingSafeEqual`.
 
+### S16b — A one-sided like named the person who sent it — **Fixed** · High
+`NEW_LIKE` notifications carried `fromUserId`, so the list rendered
+"*Name* liked you" before the like was mutual. Identity in this product is
+supposed to be revealed when **both** sides opt in; naming the liker also routed
+straight around `incognito` ("only people I've liked can see me") and
+`profileVisibility: LIMITED` — you could be hidden from someone's Discover and
+still have your name pushed to their notifications.
+**Fix:** the liker's id is no longer written into the payload at all (so nothing
+downstream can resolve it either) and the renderer says "Someone liked you"
+regardless. The comment they chose to send is kept — those are their own words.
+Names appear on `NEW_MATCH`, where both people have consented.
+See `src/lib/notifications/like-anonymity.integration.test.ts`.
+
 ### S16 — Conversation header computed age by year subtraction — **Fixed** · Low
 `getFullYear() - birthYear` is one too high until the birthday passes, so the
 thread header could disagree with the profile.
@@ -186,3 +199,21 @@ Run everything below with `RUN_DB_TESTS=1`.
 | `lib/discovery/privacy-projection.integration.test.ts` | S14 — age/distance actually withheld |
 | `app/api/metrics/route.test.ts` | S15 — token guard |
 | `app/api/health/route.test.ts` | no secret can appear in the public probe |
+| `lib/notifications/like-anonymity.integration.test.ts` | S16b — a like never names its sender |
+| `lib/security/account-lifecycle.integration.test.ts` | suspended / banned / deleted accounts: feed, profile, photos, messaging, password |
+| `lib/discovery/query-budget.integration.test.ts` | read paths stay constant-cost as the feed grows |
+
+## Probed and clean
+
+Checked live against a running server, not only by reading the code:
+
+| Attack | Result |
+|---|---|
+| Cross-origin Server Action POST | rejected — "Invalid Server Actions request" |
+| Server Action POST with no `Origin` | 404 |
+| `/api/realtime` with no session | 401 |
+| `/api/metrics` with no token | 404 (disabled), 401 (wrong token) |
+| `/discover`, `/connections`, `/settings`, `/profile`, `/admin`, `/u/:id` unauthenticated | 307 → `/login` |
+| `/admin` as a non-staff member | redirected to `/discover` |
+| Malformed JSON to a route handler | 400, no stack trace in the body |
+| Error responses | carry a digest, never a stack |

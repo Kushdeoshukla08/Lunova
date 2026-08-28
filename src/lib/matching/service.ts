@@ -67,7 +67,14 @@ export async function recordLikeAndMaybeMatch(input: {
   });
 
   if (!reciprocal || reciprocal.kind !== "LIKE") {
-    await notify(targetId, "NEW_LIKE", { fromUserId: actorId, comment: comment ?? undefined });
+    // Deliberately NOT `fromUserId`. Liking someone is not consent to be named
+    // to them: identity is revealed when both sides have opted in, which is the
+    // whole point of the mutual-match model. Naming likers here would also
+    // route around `incognito` and `LIMITED` visibility — you would like
+    // someone and have your name pushed to them anyway — and would turn the
+    // notification list into a "who likes me" feed.
+    // The comment stays: those are words the sender chose to send this person.
+    await notify(targetId, "NEW_LIKE", { comment: comment ?? undefined });
     return { matched: false };
   }
 

@@ -61,6 +61,17 @@ export function suggestOpener(p: DiscoveryProfile): Opener | null {
   return null;
 }
 
+/**
+ * The prompt an opener is quoting, if it is quoting one.
+ *
+ * The card uses this to avoid printing the same answer twice — once inside the
+ * suggested line and again in "more about them" a few hundred pixels below.
+ */
+export function quotedPromptId(opener: Opener | null | undefined): string | null {
+  const ref = opener?.elementRef;
+  return ref?.startsWith("prompt:") ? ref.slice("prompt:".length) : null;
+}
+
 /** Extract the artist name from "You both listen to Big Thief". */
 function sharedName(text: string): string | null {
   const m = text.match(/listen to (.+)$/);

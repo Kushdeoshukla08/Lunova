@@ -4,7 +4,7 @@ import * as React from "react";
 import { cn } from "@/lib/cn";
 import type { DiscoveryProfile } from "@/lib/discovery/service";
 import type { Highlight } from "@/lib/compatibility/types";
-import { suggestOpener } from "@/lib/discovery/openers";
+import { quotedPromptId, suggestOpener } from "@/lib/discovery/openers";
 import { INTENT_LABELS } from "@/lib/enums/labels";
 import { PhotoCarousel } from "./photo-carousel";
 import { VerifiedBadge } from "@/components/ui/badge";
@@ -27,6 +27,15 @@ export function DiscoveryCard({
   const [expanded, setExpanded] = React.useState(false);
   const opener = React.useMemo(() => suggestOpener(profile), [profile]);
   const personality = firstSentence(profile.bio);
+
+  // When the suggested opener quotes a prompt, that answer is already on screen
+  // — showing it again a few hundred pixels below made the card read as padded
+  // and wasted the first thing a reader looks at. Lead with the next one.
+  const quoted = quotedPromptId(opener);
+  const prompts = React.useMemo(
+    () => profile.prompts.filter((p) => p.id !== quoted),
+    [profile.prompts, quoted],
+  );
   const topHighlights = profile.compatibility.highlights.slice(0, 3);
   // Don't repeat, in an identity block, a reason already shown in "why you might click".
   const shownReasons = new Set(topHighlights.map((h) => h.text));
@@ -38,7 +47,7 @@ export function DiscoveryCard({
 
   const hasMore =
     profile.photos.length > 1 ||
-    profile.prompts.length > 1 ||
+    prompts.length > 1 ||
     Boolean(profile.bio && personality !== profile.bio) ||
     Boolean(profile.intentLabel);
 
@@ -135,11 +144,11 @@ export function DiscoveryCard({
           More about {profile.displayName}
         </div>
 
-        {profile.prompts[0] && (
+        {prompts[0] && (
           <Reveal index={step++} as="blockquote" className="border-l-2 border-glow-ring pl-3.5">
-            <p className="overline">{profile.prompts[0].question}</p>
+            <p className="overline">{prompts[0].question}</p>
             <p className="editorial mt-1 text-[1.05rem] leading-relaxed text-ink text-pretty">
-              {profile.prompts[0].answer}
+              {prompts[0].answer}
             </p>
           </Reveal>
         )}
@@ -199,7 +208,7 @@ export function DiscoveryCard({
                 <img src={p.url} alt={profile.displayName} className="w-full object-cover" />
               </div>
             ))}
-            {profile.prompts.slice(1).map((pr) => (
+            {prompts.slice(1).map((pr) => (
               <blockquote key={pr.id} className="border-l-2 border-line pl-3.5">
                 <p className="overline">{pr.question}</p>
                 <p className="editorial mt-1 text-[1.05rem] leading-relaxed text-ink text-pretty">

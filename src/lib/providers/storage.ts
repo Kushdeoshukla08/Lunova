@@ -83,7 +83,11 @@ function contentTypeForKey(key: string): string {
 /** Writes to a local directory, served by /media/[...key]. Ephemeral on PaaS. */
 class LocalStorageProvider implements StorageProvider {
   readonly name = "local";
-  private root = join(process.cwd(), env.STORAGE_LOCAL_DIR);
+  // The bundler cannot see where this resolves, so it conservatively traces the
+  // entire project into the standalone output — every source file and the whole
+  // public folder — which bloats the deployed image for nothing. The uploads
+  // directory is runtime state written after the build, never a build input.
+  private root = join(/* turbopackIgnore: true */ process.cwd(), env.STORAGE_LOCAL_DIR);
 
   async put(prefix: string, bytes: Buffer, contentType: string): Promise<StoredObject> {
     const key = newKey(prefix, contentType);

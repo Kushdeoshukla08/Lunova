@@ -41,36 +41,33 @@ export async function GET(_req: Request, ctx: RouteContext<"/media/[...key]">) {
   const viewer = await getCurrentUser();
   if (!viewer) return deny();
 
+  // A discovery card fires this once per photo, so both statements are kept
+  // shallow: Prisma issues a query per relation level, and nesting the block
+  // check under profile→user cost five round-trips per image.
   const photo = await db.photo.findUnique({
     where: { storageKey: path },
-    select: {
-      moderationStatus: true,
-      profile: {
-        select: {
-          userId: true,
-          user: {
-            select: {
-              status: true,
-              deletedAt: true,
-              blocksMade: { where: { blockedId: viewer.id }, select: { id: true }, take: 1 },
-              blocksAgainst: { where: { blockerId: viewer.id }, select: { id: true }, take: 1 },
-            },
-          },
-        },
-      },
-    },
+    select: { moderationStatus: true, profile: { select: { userId: true } } },
   });
   if (!photo) return deny();
 
-  const owner = photo.profile.user;
   const isOwner = photo.profile.userId === viewer.id;
 
   if (!isOwner) {
-    if (owner.deletedAt || owner.status === "DELETED" || owner.status === "BANNED") return deny();
-    if (owner.blocksMade.length > 0 || owner.blocksAgainst.length > 0) return deny();
-    // Pending/rejected photos are private to their owner until moderation clears
-    // them — a moderation queue must not double as a preview gallery.
+    // Pending/rejected photos are private to their owner until moderation
+    // clears them — a moderation queue must not double as a preview gallery.
     if (photo.moderationStatus !== "APPROVED") return deny();
+    // One statement: the owner must still be a live account with no block in
+    // either direction. Skipped entirely when you are looking at your own photo.
+    const visible = await db.user.count({
+      where: {
+        id: photo.profile.userId,
+        deletedAt: null,
+        status: { notIn: ["DELETED", "BANNED"] },
+        blocksMade: { none: { blockedId: viewer.id } },
+        blocksAgainst: { none: { blockerId: viewer.id } },
+      },
+    });
+    if (visible === 0) return deny();
   }
 
   const ttl = isOwner && photo.moderationStatus !== "APPROVED" ? OWNER_TTL : APPROVED_TTL;

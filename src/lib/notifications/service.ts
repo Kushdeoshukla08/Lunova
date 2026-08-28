@@ -81,12 +81,16 @@ export async function decorateNotifications(
           title: `${who} sent you a message`,
         };
       case "NEW_LIKE":
+        // Never named, even if a payload from before this change still carries
+        // an id: the liker stays anonymous until the like is mutual.
         return {
           ...n,
-          who,
           href: "/discover",
-          title: `${who} liked you`,
-          body: typeof p.comment === "string" ? `“${p.comment}”` : undefined,
+          title: "Someone liked you",
+          body:
+            typeof p.comment === "string"
+              ? `“${p.comment}”`
+              : "Keep going — you'll see them in Discover if you like them back.",
         };
       case "VERIFICATION_COMPLETE":
         return { ...n, href: "/settings", title: "Verification approved" };
