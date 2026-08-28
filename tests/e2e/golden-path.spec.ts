@@ -40,7 +40,7 @@ test.describe("golden path", () => {
 
   test("log in → discover → log out", async ({ page }) => {
     await login(page, MAYA);
-    await page.goto("/discover");
+    await page.goto("/discover", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { name: "Discover" })).toBeVisible();
 
     await page.goto("/settings");
@@ -55,7 +55,7 @@ test.describe("golden path", () => {
     await seedLike(ARJUN, MAYA);
 
     await login(page, MAYA);
-    await page.goto("/discover");
+    await page.goto("/discover", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("heading", { name: /Arjun, \d+/ })).toBeVisible({
       timeout: 15_000,
@@ -81,7 +81,7 @@ test.describe("golden path", () => {
     await seedLike(ARJUN, MAYA);
 
     await login(page, MAYA);
-    await page.goto("/discover");
+    await page.goto("/discover", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { name: /Arjun, \d+/ })).toBeVisible({
       timeout: 15_000,
     });

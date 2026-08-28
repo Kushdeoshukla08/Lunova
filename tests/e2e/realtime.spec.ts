@@ -17,6 +17,10 @@ async function signIn(browser: Browser, email: string): Promise<Page> {
 }
 
 test.describe("real-time messaging", () => {
+  // Two browser contexts, two logins, a match, and an SSE round-trip each way —
+  // heavier than the golden-path tests. Give it room on a busy machine / CI.
+  test.describe.configure({ timeout: 60_000 });
+
   test("a message sent by one person appears for the other without a reload", async ({
     browser,
   }) => {
@@ -27,7 +31,7 @@ test.describe("real-time messaging", () => {
     const arjun = await signIn(browser, ARJUN);
 
     // Maya likes back → match + conversation
-    await maya.goto("/discover");
+    await maya.goto("/discover", { waitUntil: "domcontentloaded" });
     await expect(maya.getByRole("heading", { name: /Arjun, \d+/ })).toBeVisible({
       timeout: 15_000,
     });
@@ -36,8 +40,11 @@ test.describe("real-time messaging", () => {
     await maya.waitForURL(/\/connections\//);
     const conversationUrl = new URL(maya.url()).pathname;
 
-    // Arjun opens the same thread and just sits there
-    await arjun.goto(conversationUrl);
+    // Arjun opens the same thread and just sits there. Use domcontentloaded:
+    // the page holds an EventSource open, so the "load" event can lag well past
+    // the test timeout on a busy dev server — the visible-textbox assertion
+    // below is the real readiness gate.
+    await arjun.goto(conversationUrl, { waitUntil: "domcontentloaded" });
     await expect(arjun.getByRole("textbox", { name: /Message Maya/ })).toBeVisible();
 
     // Maya sends — Arjun should receive it with no navigation of his own
