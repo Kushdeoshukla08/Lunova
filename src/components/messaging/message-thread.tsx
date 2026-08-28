@@ -131,7 +131,7 @@ export function MessageThread({
                     className={cn(
                       "max-w-[78%] rounded-[var(--radius-lg)] px-3.5 py-2 text-[0.95rem] leading-relaxed",
                       m.fromMe
-                        ? "bg-glow text-white rounded-br-sm"
+                        ? "bg-glow text-on-glow rounded-br-sm"
                         : "bg-sand text-ink rounded-bl-sm",
                       m.state === "failed" && "opacity-60 ring-1 ring-danger",
                     )}

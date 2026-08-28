@@ -3,12 +3,14 @@ import { cn } from "@/lib/cn";
 
 type Tone = "neutral" | "glow" | "moonlight" | "ok" | "warn" | "outline";
 
+// The `-ink` label colours, not the base ones: a mid-tone fill colour on its own
+// pale tint reads at about 3:1, which is under the AA minimum for body text.
 const tones: Record<Tone, string> = {
   neutral: "bg-sand text-ink-soft",
-  glow: "bg-glow-soft text-glow-press",
-  moonlight: "bg-moonlight-soft text-moonlight",
-  ok: "bg-ok-soft text-ok",
-  warn: "bg-warn-soft text-warn",
+  glow: "bg-glow-soft text-glow-ink",
+  moonlight: "bg-moonlight-soft text-moonlight-ink",
+  ok: "bg-ok-soft text-ok-ink",
+  warn: "bg-warn-soft text-warn-ink",
   outline: "border border-line-strong text-ink-soft",
 };
 

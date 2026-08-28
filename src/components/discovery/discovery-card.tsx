@@ -259,7 +259,7 @@ export function DiscoveryCard({
           onClick={() => onLike()}
           disabled={pending}
           aria-label={`Like ${profile.displayName}`}
-          className="grid size-[3.75rem] place-items-center rounded-full bg-glow text-white shadow-[var(--shadow-md)] transition-transform duration-[var(--dur-fast)] ease-[var(--ease-orbit)] hover:bg-glow-press active:scale-90 disabled:opacity-60"
+          className="grid size-[3.75rem] place-items-center rounded-full bg-glow text-on-glow shadow-[var(--shadow-md)] transition-transform duration-[var(--dur-fast)] ease-[var(--ease-orbit)] hover:bg-glow-press active:scale-90 disabled:opacity-60"
         >
           <svg viewBox="0 0 24 24" className="size-7" fill="currentColor" aria-hidden="true">
             <path d="M12 20.3 4.6 13a4.6 4.6 0 0 1 6.5-6.5l.9.9.9-.9A4.6 4.6 0 1 1 19.4 13Z" />

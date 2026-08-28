@@ -88,7 +88,7 @@ export function AppShell({
               <span className="[&_svg]:size-5">{item.icon}</span>
               {labels[item.key]}
               {badgeFor(item.href) && (
-                <span className="ml-auto grid min-w-5 place-items-center rounded-full bg-glow px-1.5 text-xs font-medium text-white">
+                <span className="ml-auto grid min-w-5 place-items-center rounded-full bg-glow px-1.5 text-xs font-medium text-on-glow">
                   {badgeFor(item.href)}
                 </span>
               )}
@@ -108,7 +108,7 @@ export function AppShell({
           <span className="[&_svg]:size-5"><IconBell /></span>
           {labels.notifications}
           {unreadNotifications > 0 && (
-            <span className="ml-auto grid min-w-5 place-items-center rounded-full bg-glow px-1.5 text-xs font-medium text-white">
+            <span className="ml-auto grid min-w-5 place-items-center rounded-full bg-glow px-1.5 text-xs font-medium text-on-glow">
               {unreadNotifications}
             </span>
           )}
@@ -172,7 +172,7 @@ export function AppShell({
             <span className="[&_svg]:size-6">{item.icon}</span>
             {labels[item.key]}
             {badgeFor(item.href) && (
-              <span className="absolute right-[calc(50%-1.75rem)] top-1.5 grid min-w-4 place-items-center rounded-full bg-glow px-1 text-[0.6rem] font-semibold text-white">
+              <span className="absolute right-[calc(50%-1.75rem)] top-1.5 grid min-w-4 place-items-center rounded-full bg-glow px-1 text-[0.6rem] font-semibold text-on-glow">
                 {badgeFor(item.href)}
               </span>
             )}

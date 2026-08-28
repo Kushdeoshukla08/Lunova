@@ -62,7 +62,7 @@ export default async function ConnectionsPage() {
                     {formatRelative(c.lastMessage?.at ?? c.matchedAt)}
                   </span>
                   {c.unread > 0 && (
-                    <span className="grid min-w-5 place-items-center rounded-full bg-glow px-1.5 text-xs font-medium text-white">
+                    <span className="grid min-w-5 place-items-center rounded-full bg-glow px-1.5 text-xs font-medium text-on-glow">
                       {c.unread}
                     </span>
                   )}

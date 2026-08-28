@@ -19,32 +19,46 @@
   --sand-strong: #e7dccd;
   --ink: #201a24;
   --ink-soft: #4b4350;
-  --ink-faint: #7c7382;
+  /* Deep enough to clear 4.5:1 on paper, sand and white — it carries the bottom
+     nav labels, so "muted" must not mean "hard to read". */
+  --ink-faint: #6f6774;
   --line: #e8ded1;
   --line-strong: #d8cbb9;
 
-  /* Brand — glow (dusk rose) */
-  --glow: #cf5569;
-  --glow-press: #b8475b;
+  /* Brand — glow (dusk rose).
+     One value has to work in both directions: as link text on a light surface
+     and as a solid fill under white text. This is the lightest dusk rose that
+     clears 4.5:1 both ways. */
+  --glow: #c0364d;
+  --glow-press: #a82f43;
   --glow-soft: #f8e7e7;
   --glow-ring: #ecbcc4;
+  /* Text colour for anything sitting *on* a solid glow fill. */
+  --on-glow: #ffffff;
+  /* Label colour on the pale glow tint (chips, badges), where the fill colour
+     itself is far too light to read against. */
+  --glow-ink: #c1364d;
 
   /* Moonlight (periwinkle) — music + celestial + "shared" moments */
   --moonlight: #5a62c6;
   --moonlight-soft: #eae9f7;
-  --moonlight-ink: #3f45a0;
+  --moonlight-ink: #4c53b5;
 
   /* Halo — the warm celestial glow behind heroes and match moments */
   --halo-warm: #f6d9c4;
   --halo-cool: #d9d7f4;
 
-  /* Status */
+  /* Status. The `-ink` variants are the readable label colour on the matching
+     `-soft` tint; the base colours are fills and icons, not body text. */
   --ok: #3c9a6d;
   --ok-soft: #e2f1e8;
+  --ok-ink: #2f7956;
   --warn: #c1832a;
   --warn-soft: #f6ebd8;
+  --warn-ink: #90621f;
   --danger: #c5473c;
   --danger-soft: #f7e2df;
+  --danger-ink: #b54036;
 
   /* Elevation — four real steps + a hairline highlight on raised surfaces */
   --shadow-sm: 0 1px 2px rgba(32, 26, 36, 0.05), 0 1px 1px rgba(32, 26, 36, 0.04);
@@ -89,6 +103,10 @@
     --glow-press: #ec8199;
     --glow-soft: #35222c;
     --glow-ring: #6d3f4b;
+    /* The dark-mode rose is light, so white text on it is only 3:1. Ink is the
+       readable choice on a solid fill here — the same role, the other polarity. */
+    --on-glow: #201a24;
+    --glow-ink: #f0a3b4;
 
     --moonlight: #9aa2ef;
     --moonlight-soft: #21233f;
@@ -99,10 +117,13 @@
 
     --ok: #5cbb8b;
     --ok-soft: #1c2f27;
+    --ok-ink: #5cbb8b;
     --warn: #d7a154;
     --warn-soft: #322818;
+    --warn-ink: #d7a154;
     --danger: #e0675c;
     --danger-soft: #33211f;
+    --danger-ink: #e0675c;
 
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
     --shadow-md: 0 8px 24px -8px rgba(0, 0, 0, 0.55);
@@ -130,6 +151,11 @@
   --glow-press: #ec8199;
   --glow-soft: #35222c;
   --glow-ring: #6d3f4b;
+  /* Must stay in step with the prefers-color-scheme block above — this one is
+     what an explicit dark choice uses, and a token missing here is a real
+     contrast failure for exactly the people who chose dark on purpose. */
+  --on-glow: #201a24;
+  --glow-ink: #f0a3b4;
 
   --moonlight: #9aa2ef;
   --moonlight-soft: #21233f;
@@ -140,10 +166,13 @@
 
   --ok: #5cbb8b;
   --ok-soft: #1c2f27;
+  --ok-ink: #5cbb8b;
   --warn: #d7a154;
   --warn-soft: #322818;
+  --warn-ink: #d7a154;
   --danger: #e0675c;
   --danger-soft: #33211f;
+  --danger-ink: #e0675c;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
   --shadow-md: 0 8px 24px -8px rgba(0, 0, 0, 0.55);
@@ -172,6 +201,8 @@
   --color-glow-press: var(--glow-press);
   --color-glow-soft: var(--glow-soft);
   --color-glow-ring: var(--glow-ring);
+  --color-glow-ink: var(--glow-ink);
+  --color-on-glow: var(--on-glow);
 
   --color-moonlight: var(--moonlight);
   --color-moonlight-soft: var(--moonlight-soft);
@@ -179,10 +210,13 @@
 
   --color-ok: var(--ok);
   --color-ok-soft: var(--ok-soft);
+  --color-ok-ink: var(--ok-ink);
   --color-warn: var(--warn);
   --color-warn-soft: var(--warn-soft);
+  --color-warn-ink: var(--warn-ink);
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
+  --color-danger-ink: var(--danger-ink);
 
   --radius-xs: var(--radius-xs);
   --radius-sm: var(--radius-sm);
