@@ -1,13 +1,18 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import { createOnboardedUser, deleteUser } from "./_db";
 
 const EMAIL = `e2e-pref-${Date.now()}@demo.lunova.local`;
 
 test.describe("discovery preferences", () => {
-  // Cold-compiles /discover and /profile/edit (9 DB-backed sections) back to
-  // back on the dev server — give it room on a busy machine / CI.
+  // Two full page loads plus /profile/edit (9 DB-backed sections). Give it room.
   test.describe.configure({ timeout: 60_000 });
   test.afterAll(() => deleteUser(EMAIL));
+
+  // The App Router streams RSC payloads, so an element can briefly exist twice
+  // (streamed + reconciled) mid-transition. `.first()` keeps strict-mode happy
+  // while Playwright auto-waits for the real one to become visible.
+  const emptyState = (page: Page) =>
+    page.getByRole("heading", { name: "No one new right now" }).first();
 
   test("change preferences → save → reload persists → Discovery reflects them", async ({
     page,
@@ -29,41 +34,39 @@ test.describe("discovery preferences", () => {
     ]);
 
     // Discovery starts empty — the empty state is shown, not hidden.
-    await page.goto("/discover", { waitUntil: "domcontentloaded" });
-    await expect(page.getByText("No one new right now")).toBeVisible();
+    await page.goto("/discover");
+    await expect(emptyState(page)).toBeVisible();
 
     // Widen preferences: age 18–99, enable worldwide (this DISABLES the distance
     // input, so it isn't submitted — the case that used to silently fail), and
     // clear the gender filter.
-    await page.goto("/profile/edit", { waitUntil: "domcontentloaded" });
+    await page.goto("/profile/edit");
     const prefs = page.locator("#preferences");
-    await expect(prefs.locator('input[name="minAge"]')).toBeVisible({ timeout: 20_000 });
-    await prefs.locator('input[name="minAge"]').fill("18");
-    await prefs.locator('input[name="maxAge"]').fill("99");
-    // Enabling worldwide disables the distance input, so it isn't submitted —
-    // the case that used to silently discard the whole save.
-    await prefs.locator('input[name="globalMode"]').check();
-    await expect(prefs.locator('input[name="maxDistanceKm"]')).toBeDisabled();
+    await expect(prefs.locator('input[name="minAge"]').first()).toBeVisible({ timeout: 20_000 });
+    await prefs.locator('input[name="minAge"]').first().fill("18");
+    await prefs.locator('input[name="maxAge"]').first().fill("99");
+    await prefs.locator('input[name="globalMode"]').first().check();
+    await expect(prefs.locator('input[name="maxDistanceKm"]').first()).toBeDisabled();
     // clear the "Woman" chip so the gender filter is empty
-    const womanChip = prefs.getByRole("switch", { name: "Woman", exact: true });
+    const womanChip = prefs.getByRole("switch", { name: "Woman", exact: true }).first();
     if ((await womanChip.getAttribute("aria-checked")) === "true") {
       await womanChip.click();
     }
-    await prefs.getByRole("button", { name: "Save" }).click();
-    await expect(prefs.getByText("Saved")).toBeVisible({ timeout: 15_000 });
+    await prefs.getByRole("button", { name: "Save" }).first().click();
+    await expect(prefs.getByText("Saved").first()).toBeVisible({ timeout: 15_000 });
 
     // Reload the edit page — the widened values must have persisted.
-    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.reload();
     const prefs2 = page.locator("#preferences");
-    await expect(prefs2.locator('input[name="minAge"]')).toHaveValue("18");
-    await expect(prefs2.locator('input[name="maxAge"]')).toHaveValue("99");
-    await expect(prefs2.locator('input[name="globalMode"]')).toBeChecked();
+    await expect(prefs2.locator('input[name="minAge"]').first()).toHaveValue("18");
+    await expect(prefs2.locator('input[name="maxAge"]').first()).toHaveValue("99");
+    await expect(prefs2.locator('input[name="globalMode"]').first()).toBeChecked();
 
     // Discovery now returns eligible seeded candidates.
-    await page.goto("/discover", { waitUntil: "domcontentloaded" });
-    await expect(page.getByText("No one new right now")).toHaveCount(0);
-    await expect(page.getByRole("heading", { name: /,\s*\d+$/ }).first()).toBeVisible({
-      timeout: 15_000,
-    });
+    await page.goto("/discover");
+    await expect(
+      page.getByRole("heading", { name: /,\s*\d+$/ }).first(),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(emptyState(page)).toHaveCount(0);
   });
 });
