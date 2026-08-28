@@ -14,7 +14,7 @@ export default async function AdminUserPage(props: PageProps<"/admin/users/[id]"
 
   return (
     <div className="flex flex-col gap-5">
-      <Link href="/admin" className="text-sm text-ink-soft hover:text-ink">
+      <Link href="/admin" className="tap-target w-fit text-sm text-ink-soft hover:text-ink">
         ← Dashboard
       </Link>
       <UserAdminSummary view={view} />

@@ -41,7 +41,13 @@ export function Avatar({
       )}
     >
       {src ? (
-        <Image src={src} alt={name} fill sizes="96px" className="object-cover" />
+        // `unoptimized` is required, not a shortcut: /media authorizes each
+        // request against the signed-in viewer, and the image optimizer fetches
+        // server-to-server with no cookie (so it would 404) into a *shared*
+        // cache (so a hit would serve one member's photo to another). Member
+        // photos must never go through it. They are small and already
+        // cache-controlled by the route.
+        <Image src={src} alt={name} fill sizes="96px" unoptimized className="object-cover" />
       ) : (
         <span aria-hidden="true">{initials(name) || "•"}</span>
       )}

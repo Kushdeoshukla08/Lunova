@@ -9,7 +9,10 @@ export function SettingsSectionHeader({
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <Link href="/settings" className="text-sm text-ink-soft hover:text-ink">
+      <Link
+        href="/settings"
+        className="tap-target w-fit text-sm text-ink-soft hover:text-ink"
+      >
         ← Settings
       </Link>
       <h1 className="text-2xl font-display tracking-tight">{title}</h1>

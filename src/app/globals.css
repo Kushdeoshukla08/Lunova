@@ -229,6 +229,31 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/*
+ * `<dialog>.showModal()` traps focus and makes the background inert, but it
+ * does not stop the page behind from scrolling. On a phone that shows up as the
+ * feed sliding around underneath an open sheet.
+ */
+body:has(dialog[open]) {
+  overflow: hidden;
+}
+
+/*
+ * iOS Safari zooms the viewport when a control with text under 16px is focused,
+ * and does not zoom back out — so tapping any field threw the whole layout off
+ * and left the person pinched in. The design uses 0.95rem (15.2px), which is
+ * just under the threshold, so phones get 16px and the intended size returns at
+ * `sm`, where the behaviour does not exist. Unlayered on purpose: it has to win
+ * over the Tailwind utility in @layer utilities.
+ */
+@media (max-width: 639px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 1rem;
+  }
+}
+
 h1, h2, h3, h4 {
   font-family: var(--font-display);
   font-optical-sizing: auto;
@@ -289,6 +314,27 @@ h1 { letter-spacing: -0.024em; }
 @layer utilities {
   .text-balance { text-wrap: balance; }
   .text-pretty { text-wrap: pretty; }
+
+  /*
+   * Touch target (WCAG 2.2 SC 2.5.8, AA: 24×24 minimum).
+   * Grows a small control's *hit area* without changing its size, so a text
+   * link or an icon button stays visually light but is still reachable with a
+   * thumb. Default 2.75rem (44px, the comfortable mobile size); override with
+   * --tap where a bigger area would swallow a neighbouring control — chips in a
+   * row, for example, where 1.75rem clears the bar without overlapping.
+   */
+  .tap-target {
+    position: relative;
+  }
+  .tap-target::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    translate: -50% -50%;
+    width: max(100%, var(--tap, 2.75rem));
+    height: max(100%, var(--tap, 2.75rem));
+  }
 
   /* Editorial voice — Fraunces, for prompts, quotes, "the why" */
   .editorial {

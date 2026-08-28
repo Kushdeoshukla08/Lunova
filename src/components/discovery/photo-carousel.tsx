@@ -60,12 +60,23 @@ export function PhotoCarousel({
           alt={idx === i ? `${alt}, photo ${idx + 1}` : ""}
           aria-hidden={idx === i ? undefined : true}
           draggable={false}
+          // The first photo is the largest thing on the page and decides LCP;
+          // the rest are pre-positioned for the crossfade and can wait.
+          fetchPriority={idx === 0 ? "high" : "low"}
+          decoding={idx === 0 ? "sync" : "async"}
           className={cn(
             "absolute inset-0 size-full object-cover transition-opacity duration-[var(--dur)] ease-[var(--ease-orbit)]",
             idx === i ? "opacity-100" : "opacity-0",
           )}
         />
       ))}
+
+      {/* The container's aria-label updates when the photo changes, but nothing
+          announces it. A polite live region is what actually tells a screen
+          reader the paging worked. */}
+      <span aria-live="polite" className="sr-only">
+        {count > 1 ? `Photo ${i + 1} of ${count}` : ""}
+      </span>
 
       {count > 1 && (
         <>

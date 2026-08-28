@@ -146,14 +146,19 @@ export function AppShell({
       </header>
 
       {/* Content */}
-      <main id="content" className="flex-1 pb-20 lg:pb-0">
+      {/* The bottom padding clears the fixed nav *and* the home indicator; both
+          have to grow together or the last row of content ends up under one. */}
+      <main
+        id="content"
+        className="flex-1 pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0"
+      >
         <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6 lg:max-w-4xl lg:py-10">
           {children}
         </div>
       </main>
 
       {/* Mobile bottom nav */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-line bg-paper-raised/95 backdrop-blur lg:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-line bg-paper-raised/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
         {NAV.map((item) => (
           <Link
             key={item.href}

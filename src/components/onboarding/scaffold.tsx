@@ -21,7 +21,7 @@ export function OnboardingScaffold({
             Step {i + 1} of {TOTAL_STEPS}
           </span>
           {prev && (
-            <Link href={`/onboarding/${prev}`} className="hover:text-ink">
+            <Link href={`/onboarding/${prev}`} className="tap-target hover:text-ink">
               ← Back
             </Link>
           )}

@@ -32,8 +32,12 @@ export default async function SettingsPage() {
         <CardTitle>Account</CardTitle>
         <dl className="mt-3 space-y-2 text-sm">
           <Row label="Email">
-            <span className="text-ink">{user.email}</span>
-            <Badge tone={user.emailVerifiedAt ? "ok" : "warn"} className="ml-2">
+            {/* An email address has no break opportunities, so it has to be
+                allowed to truncate or it pushes the row off a 320px screen. */}
+            <span className="truncate text-ink" title={user.email}>
+              {user.email}
+            </span>
+            <Badge tone={user.emailVerifiedAt ? "ok" : "warn"} className="shrink-0">
               {user.emailVerifiedAt ? "Verified" : "Unverified"}
             </Badge>
           </Row>
@@ -41,7 +45,7 @@ export default async function SettingsPage() {
             {trust?.phoneVerified ? (
               <Badge tone="ok">Verified</Badge>
             ) : (
-              <Link href="/verify/phone" className="text-glow hover:text-glow-press">
+              <Link href="/verify/phone" className="tap-target font-medium text-glow hover:text-glow-press">
                 Add & verify
               </Link>
             )}
@@ -50,7 +54,7 @@ export default async function SettingsPage() {
             {trust?.photoVerified ? (
               <Badge tone="moonlight">Verified</Badge>
             ) : (
-              <Link href="/verify/photo" className="text-glow hover:text-glow-press">
+              <Link href="/verify/photo" className="tap-target font-medium text-glow hover:text-glow-press">
                 Get verified
               </Link>
             )}
@@ -86,9 +90,11 @@ export default async function SettingsPage() {
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-4">
-      <dt className="text-ink-faint">{label}</dt>
-      <dd className="flex items-center">{children}</dd>
+    // Wraps to two lines rather than overflowing when the value is long and the
+    // screen is narrow — `min-w-0` is what lets the value truncate inside it.
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-0.5">
+      <dt className="shrink-0 text-ink-faint">{label}</dt>
+      <dd className="flex min-w-0 items-center gap-2">{children}</dd>
     </div>
   );
 }

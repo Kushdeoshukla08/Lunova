@@ -117,15 +117,14 @@ export function DiscoveryCard({
               “{opener.text}”
             </p>
             <p className="mt-1 text-xs text-ink-faint">Drawn from {opener.source}</p>
+            {/* The opener is the product's core action, so it gets a full-size
+                touch target rather than the compact one — it wraps to two rows
+                on a 320px screen, which is the right trade. */}
             <div className="mt-3 flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                onClick={() => onLike(opener.text, opener.elementRef)}
-                loading={pending}
-              >
+              <Button onClick={() => onLike(opener.text, opener.elementRef)} loading={pending}>
                 Send this &amp; like
               </Button>
-              <Button size="sm" variant="ghost" onClick={onWriteYourOwn} disabled={pending}>
+              <Button variant="ghost" onClick={onWriteYourOwn} disabled={pending}>
                 Write your own
               </Button>
             </div>
@@ -226,7 +225,7 @@ export function DiscoveryCard({
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
-            className="-mt-1 self-start text-sm font-medium text-glow hover:text-glow-press"
+            className="tap-target -mt-1 self-start text-sm font-medium text-glow hover:text-glow-press"
             aria-expanded={expanded}
           >
             {expanded ? "Show less" : "See full profile"}

@@ -67,7 +67,9 @@ export function Modal({
           className={cn(
             "relative w-full bg-paper-raised shadow-[var(--shadow-lg)] border border-line",
             "rounded-t-[var(--radius-xl)] sm:rounded-[var(--radius-xl)]",
-            "max-h-[92vh] overflow-y-auto",
+            // `overscroll-contain` stops a flick at the end of the sheet from
+            // scrolling the page underneath it — the usual bottom-sheet wart.
+            "max-h-[92vh] overflow-y-auto overscroll-contain",
             "motion-safe:animate-[orbit-in_var(--dur)_var(--ease-orbit)]",
             widths[size],
             className,

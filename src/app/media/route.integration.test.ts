@@ -188,8 +188,21 @@ d("GET /media/[...key] — authorization", () => {
     const res = await call(keys.ownerApproved);
     expect(res.headers.get("x-content-type-options")).toBe("nosniff");
     expect(res.headers.get("content-disposition")).toBe("inline");
-    expect(res.headers.get("content-security-policy")).toContain("default-src 'none'");
     // Member photos are never shared-cacheable.
     expect(res.headers.get("cache-control")).toMatch(/^private,/);
+    // The sandbox CSP is applied by next.config.ts, not here — Next's configured
+    // headers replace whatever a route handler sets, so asserting it on this
+    // response would pass while the deployed response carried the site policy.
+    // It is covered by the next.config assertion below instead.
+  });
+
+  it("next.config pins a document-proof CSP on /media", async () => {
+    const { default: config } = await import("../../../next.config");
+    const rules = await config.headers!();
+    const media = rules.find((r) => r.source.startsWith("/media"));
+    expect(media, "no /media header rule — the route would inherit the site CSP").toBeDefined();
+    const csp = media!.headers.find((h) => h.key === "Content-Security-Policy");
+    expect(csp?.value).toContain("default-src 'none'");
+    expect(csp?.value).toContain("sandbox");
   });
 });

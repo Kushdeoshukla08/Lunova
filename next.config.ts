@@ -91,7 +91,22 @@ const nextConfig: NextConfig = {
     qualities: [50, 75, 90],
   },
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      // Member media. Headers set here override the per-response ones the route
+      // handler writes, so the tight policy has to live in the config or it is
+      // silently replaced by the site-wide CSP above. Nothing served from here
+      // is ever a document: no scripts, no subresources, no framing.
+      {
+        source: "/media/:path*",
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value: "default-src 'none'; sandbox; frame-ancestors 'none'",
+          },
+        ],
+      },
+    ];
   },
 };
 

@@ -29,7 +29,10 @@ export default async function EditProfilePage() {
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-display tracking-tight">Edit profile</h1>
-        <Link href="/profile" className="text-sm text-ink-soft hover:text-ink">
+        <Link
+          href="/profile"
+          className="tap-target text-sm font-medium text-ink-soft hover:text-ink"
+        >
           Done
         </Link>
       </div>

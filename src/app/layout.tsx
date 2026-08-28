@@ -34,6 +34,9 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
+  // Required for env(safe-area-inset-*) to report anything but 0 — without it
+  // the bottom nav sits under the home indicator on every notched phone.
+  viewportFit: "cover",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#fbf6f1" },
     { media: "(prefers-color-scheme: dark)", color: "#161219" },

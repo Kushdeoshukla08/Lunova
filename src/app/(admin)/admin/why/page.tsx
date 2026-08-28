@@ -31,7 +31,7 @@ export default async function WhyPage(props: PageProps<"/admin/why">) {
             <input
               name="viewer"
               defaultValue={viewer ?? ""}
-              className="w-72 rounded-[var(--radius-md)] border border-line bg-paper px-3 py-2 text-sm"
+              className="w-full max-w-72 rounded-[var(--radius-md)] border border-line bg-paper px-3 py-2 text-sm"
             />
           </label>
           <label className="flex flex-col gap-1 text-xs text-ink-soft">
@@ -39,7 +39,7 @@ export default async function WhyPage(props: PageProps<"/admin/why">) {
             <input
               name="candidate"
               defaultValue={candidate ?? ""}
-              className="w-72 rounded-[var(--radius-md)] border border-line bg-paper px-3 py-2 text-sm"
+              className="w-full max-w-72 rounded-[var(--radius-md)] border border-line bg-paper px-3 py-2 text-sm"
             />
           </label>
           <button

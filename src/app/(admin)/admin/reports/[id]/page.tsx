@@ -23,7 +23,10 @@ export default async function ReportDetailPage(props: PageProps<"/admin/reports/
 
   return (
     <div className="flex flex-col gap-5">
-      <Link href="/admin/reports" className="text-sm text-ink-soft hover:text-ink">
+      <Link
+        href="/admin/reports"
+        className="tap-target w-fit text-sm text-ink-soft hover:text-ink"
+      >
         ← Queue
       </Link>
 

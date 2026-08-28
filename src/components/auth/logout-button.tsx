@@ -8,7 +8,7 @@ export function LogoutButton({ className }: { className?: string }) {
       <button
         type="submit"
         className={cn(
-          "text-sm text-ink-soft hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-glow rounded",
+          "tap-target text-sm text-ink-soft hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-glow rounded",
           className,
         )}
       >

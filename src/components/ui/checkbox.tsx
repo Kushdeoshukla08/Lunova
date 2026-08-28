@@ -9,9 +9,16 @@ export const Checkbox = React.forwardRef<
 >(function Checkbox({ label, className, id, ...props }, ref) {
   const autoId = React.useId();
   const inputId = id ?? autoId;
+  // The box itself is 18px, well under the 24px WCAG 2.2 minimum. Wrapping the
+  // whole row in the <label> makes the text part of the target too, which is
+  // both compliant and how anyone actually expects a checkbox row to behave.
+  const Row = label ? "label" : "span";
   return (
-    <span className="inline-flex items-start gap-2.5">
-      <span className="relative mt-0.5 inline-grid size-[1.15rem] shrink-0 place-items-center">
+    <Row
+      {...(label ? { htmlFor: inputId } : {})}
+      className="inline-flex min-h-11 cursor-pointer items-start gap-2.5 py-2.5"
+    >
+      <span className="relative mt-px inline-grid size-[1.15rem] shrink-0 place-items-center">
         <input
           ref={ref}
           id={inputId}
@@ -39,11 +46,7 @@ export const Checkbox = React.forwardRef<
           />
         </svg>
       </span>
-      {label && (
-        <label htmlFor={inputId} className="text-sm text-ink leading-relaxed">
-          {label}
-        </label>
-      )}
-    </span>
+      {label && <span className="text-sm leading-relaxed text-ink">{label}</span>}
+    </Row>
   );
 });

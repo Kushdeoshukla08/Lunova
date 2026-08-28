@@ -80,17 +80,84 @@ export function SafetyMenu({
       router.refresh();
     });
 
+  const triggerRef = React.useRef<HTMLButtonElement>(null);
+  const menuRef = React.useRef<HTMLDivElement>(null);
+
+  const closeMenu = React.useCallback((returnFocus = false) => {
+    setOpen(false);
+    if (returnFocus) triggerRef.current?.focus();
+  }, []);
+
+  /** Move through the items with the arrow keys, as a menu is expected to. */
+  const focusItem = (delta: 1 | -1 | "first" | "last") => {
+    const items = [
+      ...(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []),
+    ];
+    if (items.length === 0) return;
+    const current = items.indexOf(document.activeElement as HTMLElement);
+    const next =
+      delta === "first"
+        ? 0
+        : delta === "last"
+          ? items.length - 1
+          : (current + delta + items.length) % items.length;
+    items[next]?.focus();
+  };
+
+  // Opening with a keyboard should land focus on the first item; opening with a
+  // pointer should not steal it. `open` alone can't tell them apart, so the
+  // trigger records how it was invoked.
+  const openedByKeyboard = React.useRef(false);
+  React.useEffect(() => {
+    if (open && openedByKeyboard.current) {
+      openedByKeyboard.current = false;
+      focusItem("first");
+    }
+  }, [open]);
+
   return (
     <>
-      <div className={cn("relative", className)}>
+      <div
+        className={cn("relative", className)}
+        // Closing on the *trigger's* blur meant Tabbing into the menu closed it,
+        // so block/report/unmatch were unreachable by keyboard. Watch the whole
+        // subtree instead and only close when focus actually leaves it.
+        onBlur={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOpen(false);
+        }}
+        onKeyDown={(e) => {
+          if (!open) return;
+          if (e.key === "Escape") {
+            e.stopPropagation();
+            closeMenu(true);
+          } else if (e.key === "ArrowDown") {
+            e.preventDefault();
+            focusItem(1);
+          } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            focusItem(-1);
+          } else if (e.key === "Home") {
+            e.preventDefault();
+            focusItem("first");
+          } else if (e.key === "End") {
+            e.preventDefault();
+            focusItem("last");
+          }
+        }}
+      >
         <button
+          ref={triggerRef}
           type="button"
-          aria-label="Safety options"
+          aria-label={`Safety options for ${subjectName}`}
           aria-haspopup="menu"
           aria-expanded={open}
+          onKeyDown={(e) => {
+            if (!open && (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ")) {
+              openedByKeyboard.current = true;
+            }
+          }}
           onClick={() => setOpen((v) => !v)}
-          onBlur={() => setTimeout(() => setOpen(false), 150)}
-          className="grid size-9 place-items-center rounded-full text-ink-soft hover:bg-sand hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-glow"
+          className="tap-target grid size-9 place-items-center rounded-full text-ink-soft hover:bg-sand hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-glow"
         >
           <svg viewBox="0 0 20 20" className="size-5" aria-hidden="true">
             <circle cx="4" cy="10" r="1.6" fill="currentColor" />
@@ -100,7 +167,9 @@ export function SafetyMenu({
         </button>
         {open && (
           <div
+            ref={menuRef}
             role="menu"
+            aria-label={`Safety options for ${subjectName}`}
             className="absolute right-0 top-11 z-20 w-44 overflow-hidden rounded-[var(--radius-md)] border border-line bg-paper-raised py-1 shadow-[var(--shadow-md)]"
           >
             {matchId && (

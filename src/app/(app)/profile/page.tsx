@@ -111,7 +111,7 @@ export default async function ProfilePage() {
       </Card>
 
       <p className="text-center text-sm">
-        <Link href="/settings" className="text-ink-soft hover:text-ink">
+        <Link href="/settings" className="tap-target text-ink-soft hover:text-ink">
           Account & settings
         </Link>
       </p>

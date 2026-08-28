@@ -47,7 +47,7 @@ export function PhotosStep({ photos }: { photos: Photo[] }) {
               {!p.isPrimary && (
                 <form action={setPrimaryPhotoAction}>
                   <input type="hidden" name="photoId" value={p.id} />
-                  <button className="rounded bg-paper-raised/90 px-1.5 py-0.5 text-[0.7rem] font-medium text-ink">
+                  <button className="tap-target [--tap:2rem] rounded bg-paper-raised/90 px-1.5 py-0.5 text-[0.7rem] font-medium text-ink">
                     Set main
                   </button>
                 </form>
@@ -56,7 +56,9 @@ export function PhotosStep({ photos }: { photos: Photo[] }) {
                 <input type="hidden" name="photoId" value={p.id} />
                 <button
                   aria-label="Remove photo"
-                  className="rounded bg-paper-raised/90 px-1.5 py-0.5 text-[0.7rem] font-medium text-danger"
+                  // Sits next to "Set main" inside a photo tile, so the hit area
+                  // is grown just enough to clear 24px without the two overlapping.
+                  className="tap-target [--tap:2rem] rounded bg-paper-raised/90 px-1.5 py-0.5 text-[0.7rem] font-medium text-danger"
                 >
                   Remove
                 </button>

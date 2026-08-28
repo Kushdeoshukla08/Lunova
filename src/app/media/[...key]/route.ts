@@ -97,10 +97,11 @@ export async function GET(_req: Request, ctx: RouteContext<"/media/[...key]">) {
       "Content-Type": object.contentType,
       "Content-Length": String(object.bytes.byteLength),
       // Belt and braces against a stored file being treated as an active
-      // document: never sniff, never render as a top-level page, never frame.
+      // document. The matching `default-src 'none'; sandbox` CSP is set in
+      // next.config.ts — headers configured there override anything written
+      // here, so setting it in both places would be a lie in one of them.
       "X-Content-Type-Options": "nosniff",
       "Content-Disposition": "inline",
-      "Content-Security-Policy": "default-src 'none'; sandbox",
       "Cache-Control": `private, max-age=${ttl}`,
     },
   });

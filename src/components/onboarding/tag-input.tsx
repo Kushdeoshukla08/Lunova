@@ -54,7 +54,9 @@ export function TagInput({
               type="button"
               onClick={() => setTags((p) => p.filter((x) => x !== t))}
               aria-label={`Remove ${t}`}
-              className="text-ink-faint hover:text-ink"
+              // A bare "×" glyph is a ~9px target. Expand the hit area, but
+              // only to 1.75rem — a full 2.75rem would overlap the next chip.
+              className="tap-target [--tap:1.75rem] text-ink-faint hover:text-ink"
             >
               ×
             </button>
