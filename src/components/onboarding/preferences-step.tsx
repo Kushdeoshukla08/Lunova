@@ -25,11 +25,13 @@ export function PreferencesStep({
 }) {
   const [globalMode, setGlobalMode] = React.useState(defaults.globalMode);
   const maxAgeError = useStepError("maxAge");
+  const minAgeError = useStepError("minAge");
+  const distanceError = useStepError("maxDistanceKm");
 
   return (
     <StepForm slug="preferences">
       <div className="flex flex-col gap-5">
-        <Field label="Age range" error={maxAgeError}>
+        <Field label="Age range" error={maxAgeError ?? minAgeError}>
           <div className="flex items-center gap-3">
             <Input
               name="minAge"
@@ -55,6 +57,7 @@ export function PreferencesStep({
 
         <Field
           label="Maximum distance"
+          error={distanceError}
           hint={globalMode ? "Global mode is on — distance is ignored." : undefined}
         >
           <div className="flex items-center gap-3">

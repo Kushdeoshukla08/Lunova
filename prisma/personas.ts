@@ -104,9 +104,12 @@ export async function createPersona(
       },
       preference: {
         create: {
-          minAge: p.pref?.minAge ?? 25,
-          maxAge: p.pref?.maxAge ?? 45,
-          maxDistanceKm: p.pref?.maxDistanceKm ?? 150,
+          // Wide by default so any plausible adult test account with default
+          // preferences can discover several personas. Individual personas
+          // narrow this via `p.pref` where their character calls for it.
+          minAge: p.pref?.minAge ?? 21,
+          maxAge: p.pref?.maxAge ?? 55,
+          maxDistanceKm: p.pref?.maxDistanceKm ?? 200,
           genders: (p.pref?.genders ?? []) as never,
           globalMode: p.pref?.globalMode ?? false,
         },

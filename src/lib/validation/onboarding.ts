@@ -78,7 +78,13 @@ export const preferencesSchema = z
   .object({
     minAge: z.coerce.number().int().min(18).max(100),
     maxAge: z.coerce.number().int().min(18).max(100),
-    maxDistanceKm: z.coerce.number().int().min(1).max(500),
+    // Optional: when "worldwide" is on the UI disables this input, so the field
+    // isn't submitted at all. A missing value must not fail the whole form — the
+    // caller keeps the previously stored distance in that case.
+    maxDistanceKm: z.preprocess(
+      (v) => (v === null || v === undefined || v === "" ? undefined : v),
+      z.coerce.number().int().min(1).max(500).optional(),
+    ),
     genders: stringArray.pipe(z.array(z.enum(Gender)).max(9)),
     globalMode: z.coerce.boolean().optional().default(false),
   })

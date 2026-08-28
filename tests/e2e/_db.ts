@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import pg from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../../src/generated/prisma/client";
+import { hashPassword } from "../../src/lib/auth/password";
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 export const db = new PrismaClient({ adapter: new PrismaPg(pool) });
@@ -28,6 +29,80 @@ export async function setEmailCode(userEmail: string, code: string): Promise<boo
 
 export async function deleteUser(email: string) {
   await db.user.deleteMany({ where: { email } });
+}
+
+/**
+ * Insert a fully-onboarded, discoverable member directly — skips walking the
+ * 9-step onboarding UI when a test only cares about what happens *after*.
+ * Returns the plaintext password to log in with.
+ */
+export async function createOnboardedUser(
+  email: string,
+  opts: {
+    age?: number;
+    gender?: "WOMAN" | "MAN" | "NONBINARY";
+    lat?: number;
+    lng?: number;
+    pref?: {
+      minAge?: number;
+      maxAge?: number;
+      maxDistanceKm?: number;
+      genders?: string[];
+      globalMode?: boolean;
+    };
+  } = {},
+): Promise<{ email: string; password: string }> {
+  const password = "e2e-onboarded-pass";
+  const age = opts.age ?? 30;
+  const interests = await db.interest.findMany({ take: 5, select: { id: true } });
+  await db.user.deleteMany({ where: { email } });
+  await db.user.create({
+    data: {
+      email,
+      passwordHash: await hashPassword(password),
+      birthdate: new Date(new Date().getFullYear() - age, 5, 15),
+      emailVerifiedAt: new Date(),
+      ageVerifiedAt: new Date(),
+      status: "ACTIVE",
+      preference: {
+        create: {
+          minAge: opts.pref?.minAge ?? 18,
+          maxAge: opts.pref?.maxAge ?? 99,
+          maxDistanceKm: opts.pref?.maxDistanceKm ?? 500,
+          genders: (opts.pref?.genders ?? []) as never,
+          globalMode: opts.pref?.globalMode ?? false,
+        },
+      },
+      privacy: { create: {} },
+      trust: { create: { emailVerified: true } },
+      notificationPref: { create: {} },
+      profile: {
+        create: {
+          displayName: email.split("@")[0].slice(0, 20),
+          gender: (opts.gender ?? "WOMAN") as never,
+          onboardingStep: null,
+          completeness: 80,
+          relationshipIntent: "LONG_TERM",
+          city: "Lisbon",
+          country: "PT",
+          latitude: opts.lat ?? 38.722,
+          longitude: opts.lng ?? -9.139,
+          locationPrecision: "CITY",
+          bio: "Here for the QA pass.",
+          photos: {
+            create: {
+              storageKey: `photos/e2e/${email.split("@")[0]}.jpg`,
+              moderationStatus: "APPROVED",
+              position: 0,
+              isPrimary: true,
+            },
+          },
+          interests: { create: interests.map((i) => ({ interestId: i.id })) },
+        },
+      },
+    },
+  });
+  return { email, password };
 }
 
 /** Seed a one-directional LIKE so the next reciprocal like produces a match. */

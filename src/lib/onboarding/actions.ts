@@ -35,6 +35,8 @@ export type StepState = {
   fieldErrors?: Record<string, string[] | undefined>;
   /** Set after a successful save in "edit" mode (no redirect). */
   saved?: boolean;
+  /** The values actually written, read back from the DB. Lets the client trust the response. */
+  persisted?: Record<string, unknown>;
 };
 
 export type StepMode = "onboarding" | "edit";
@@ -187,8 +189,9 @@ export async function saveStepAction(
   // Editing an existing profile — persist and stay put.
   if (mode === "edit") {
     revalidatePath("/profile");
+    revalidatePath("/profile/edit");
     revalidatePath("/discover");
-    return { saved: true };
+    return { saved: true, persisted: result?.persisted };
   }
 
   const next = nextStep(slug);
@@ -418,17 +421,27 @@ async function savePreferencesStep(userId: string, fd: FormData): Promise<StepSt
   });
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
   const d = parsed.data;
-  await db.preference.update({
+
+  // `maxDistanceKm` is only present when the distance input was enabled
+  // (i.e. worldwide off). When absent, leave the stored value untouched.
+  const pref = await db.preference.update({
     where: { userId },
     data: {
       minAge: d.minAge,
       maxAge: d.maxAge,
-      maxDistanceKm: d.maxDistanceKm,
       genders: d.genders,
       globalMode: d.globalMode,
+      ...(d.maxDistanceKm !== undefined ? { maxDistanceKm: d.maxDistanceKm } : {}),
+    },
+    select: {
+      minAge: true,
+      maxAge: true,
+      maxDistanceKm: true,
+      genders: true,
+      globalMode: true,
     },
   });
-  return {};
+  return { persisted: pref };
 }
 
 async function savePrivacyStep(userId: string, fd: FormData): Promise<StepState> {
