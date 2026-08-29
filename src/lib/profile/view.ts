@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { db } from "@/lib/db";
 import { storage } from "@/lib/providers/storage";
 import { isBlockedEitherWay } from "@/lib/safety/service";
@@ -28,7 +29,7 @@ export interface PublicProfile {
  * Read a member's profile as `viewerId` sees it. Enforces blocks and the
  * subject's per-section visibility (PUBLIC always; CONNECTIONS only if matched).
  */
-export async function getPublicProfile(
+export const getPublicProfile = cache(async function getPublicProfile(
   viewerId: string,
   targetId: string,
 ): Promise<PublicProfile | null> {
@@ -145,4 +146,4 @@ export async function getPublicProfile(
       : null,
     connected,
   };
-}
+});

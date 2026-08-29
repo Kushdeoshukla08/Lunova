@@ -19,8 +19,22 @@ import { isSafeKey, storage } from "@/lib/providers/storage";
 const SERVE_PREFIXES = ["photos/"];
 
 /** Long for approved photos (content at a key never changes), short otherwise. */
-const APPROVED_TTL = 60 * 60 * 24 * 7;
-const OWNER_TTL = 60 * 5;
+/**
+ * Access to member media is revocable — by a block, a ban, an account deletion,
+ * or moderation rejecting a photo that was previously approved. The server
+ * enforces all of those on every request, but a cached response is served by
+ * the viewer's own browser without asking, so the cache lifetime *is* the
+ * revocation delay. A week of it meant a photo could still render for someone
+ * you had just blocked.
+ *
+ * Five minutes keeps the win that actually matters — a discovery card asks for
+ * the same handful of images repeatedly within one session — while bounding
+ * revocation to minutes. Longer belongs with an ETag and revalidation, not a
+ * bigger max-age.
+ */
+const APPROVED_TTL = 60 * 5;
+/** In-moderation photos are the owner's alone; shorter still. */
+const OWNER_TTL = 60;
 
 function deny() {
   // 404, not 403: a distinguishable "exists but forbidden" turns this route

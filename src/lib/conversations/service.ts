@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { db } from "@/lib/db";
 import { storage } from "@/lib/providers/storage";
 import { ageFromBirthdate, describeAgeBand } from "@/lib/compatibility/geo";
@@ -138,7 +139,7 @@ export async function getConversations(userId: string): Promise<ConversationSumm
     );
 }
 
-export async function getConversation(
+export const getConversation = cache(async function getConversation(
   userId: string,
   conversationId: string,
 ): Promise<ConversationThread | null> {
@@ -252,7 +253,7 @@ export async function getConversation(
     matchedThrough: match.contextTags,
     matchHeadline: match.contextHeadline,
   };
-}
+});
 
 /** Mark the other participant's messages as read. Fire-and-forget from the thread page. */
 export async function markConversationRead(userId: string, conversationId: string): Promise<void> {

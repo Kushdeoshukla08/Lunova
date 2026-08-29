@@ -190,6 +190,15 @@ d("GET /media/[...key] — authorization", () => {
     expect(res.headers.get("content-disposition")).toBe("inline");
     // Member photos are never shared-cacheable.
     expect(res.headers.get("cache-control")).toMatch(/^private,/);
+    // …and the cache lifetime is the revocation delay: a block, ban, deletion
+    // or moderation rejection only takes effect in a viewer's browser once
+    // their cached copy expires. Keep it to minutes, not days.
+    const maxAge = Number(/max-age=(\d+)/.exec(res.headers.get("cache-control") ?? "")?.[1]);
+    expect(maxAge).toBeGreaterThan(0);
+    expect(
+      maxAge,
+      "a long max-age lets revoked media keep rendering for the viewer",
+    ).toBeLessThanOrEqual(600);
     // The sandbox CSP is applied by next.config.ts, not here — Next's configured
     // headers replace whatever a route handler sets, so asserting it on this
     // response would pass while the deployed response carried the site policy.

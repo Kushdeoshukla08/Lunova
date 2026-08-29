@@ -13,6 +13,7 @@ export async function generateMetadata(
   const { userId } = await props.params;
   const me = await requireOnboardedUser();
   const p = await getPublicProfile(me.id, userId);
+  // Request-cached, so the page body below reuses this lookup.
   return { title: p ? p.name : "Profile" };
 }
 
@@ -20,6 +21,10 @@ export default async function PublicProfilePage(props: PageProps<"/u/[userId]">)
   const { userId } = await props.params;
   const me = await requireOnboardedUser();
   const p = await getPublicProfile(me.id, userId);
+  // Renders the 404 page. The HTTP status stays 200: the (app) group has a
+  // loading.tsx, so Next flushes the shell — and the status — before this
+  // resolves. Only affects monitoring, never what the visitor sees; removing
+  // the loading boundary to fix it would cost every page its loading state.
   if (!p) notFound();
 
   return (

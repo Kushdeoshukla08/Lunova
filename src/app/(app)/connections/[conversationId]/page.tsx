@@ -14,6 +14,7 @@ export async function generateMetadata(
   const { conversationId } = await props.params;
   const user = await requireOnboardedUser();
   const convo = await getConversation(user.id, conversationId);
+  // Request-cached, so the page body below reuses this lookup.
   return { title: convo ? `Chat with ${convo.other.name}` : "Conversation" };
 }
 
